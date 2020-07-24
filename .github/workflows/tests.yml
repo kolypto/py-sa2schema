@@ -1,0 +1,25 @@
+name: Tests
+on: [push, pull_request, release]
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    #container:
+
+    strategy:
+      matrix:
+        python-version: ['3.x']#, 'pypy3']
+
+    name: Test with python ${{ matrix.python-version }}
+    steps:
+    - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: ./.nox/  # what we cache: nox virtualenv (they're expensive)
+        key: ${{ runner.os }}-nox-1-${{ hashFiles('**/pyproject.toml', '**/noxfile.py') }}  # cache key
+        restore-keys: |
+          ${{ runner.os }}-nox-1-
+    - run: pip install poetry nox
+    - run: nox -r
