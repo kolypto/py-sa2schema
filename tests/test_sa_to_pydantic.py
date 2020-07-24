@@ -1,10 +1,11 @@
 from typing import Any
 
+import pytest
 from pydantic import BaseModel, ValidationError
 
 from sa2schema import AttributeType, sa2
 
-from .models import User, EnumType
+from .models import User, Article, EnumType
 
 
 def test_sa_model_User_columns():
@@ -39,6 +40,7 @@ def test_sa_model_User_columns():
     assert user.default == 'value'  # default's here
     assert user.optional is None  # nullable got it's default
     assert user.required == '777'  # required field is here; converted to string
+
 
 def test_sa_model_User_properties():
     """ User: PROPERTY """
@@ -98,6 +100,34 @@ def test_sa_model_User_exotic():
         'expression': {'type': int, 'default': None, 'required': False},
         'hybrid_method_attr': {'type': Any, 'default': None, 'required': False},
     }
+
+
+@pytest.mark.skip('Not yet supported')
+def test_sa_model_User_relationships():
+    """ User: RELATIONSHIP, DYNAMIC_LOADER, ASSOCIATION_PROXY """
+    # the difficult thing is that in a relationship, create_model()
+    # has to refer to other models that have not been created yet.
+
+    # Test User: relationships
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.RELATIONSHIP)
+
+    # Test Article: relationships
+    pd_Article = sa2.pydantic.sa_model(Article, types=AttributeType.RELATIONSHIP)
+
+    # Test User: dynamic loader
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.DYNAMIC_LOADER)
+
+    # Test User: association proxy
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY)
+
+
+@pytest.mark.skip('Not yet supported')
+def test_sa_model_User_composite():
+    """ User: COMPOSITE """
+    # Difficulty: a composite refers to a type class which itself requires a pydantic model to work
+
+    # Test User: composite
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.COMPOSITE)
 
 
 # Extract __fields__ from schema

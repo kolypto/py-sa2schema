@@ -16,11 +16,11 @@ Subclass AttributeType and provide that a flag for your library. This might work
 
 from __future__ import annotations
 
-import typing
 from copy import copy
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Any, Optional, Union, Literal, Callable, Iterable, TypeVar, Type, List, Set, Dict
+from typing import get_type_hints
+from typing import Any, Optional, Union, Callable, Iterable, TypeVar, Type, List, Set, Dict, Generic
 
 from pydantic.utils import lenient_issubclass
 from sqlalchemy import Column, ColumnDefault
@@ -38,6 +38,14 @@ from sqlalchemy.util import symbol
 
 from .defs import AttributeType
 
+# Python >= 3.8
+try:
+    from typing import Literal, get_args, get_origin
+# Compatibility
+except ImportError:
+    Literal = lambda x: x
+    get_args = lambda t: getattr(t, '__args__', ()) if t is not Generic else Generic
+    get_origin = lambda t: getattr(t, '__origin__', None)
 
 # Value not provided (e.g. `default` value)
 NOT_PROVIDED = symbol('NOT_PROVIDED')
@@ -552,17 +560,17 @@ def is_Optional_type(t: type):
     # This type has t.__origin__=typing.Union and t.__args__=[..., NoneType]
     # get_origin() won't fail: it returns None for non-typing types (Python 3.8+)
     return t is Any or (
-        typing.get_origin(t) is Union and
-        type(None) in typing.get_args(t)
+        get_origin(t) is Union and
+        type(None) in get_args(t)
     )
 
 
 def unwrap_Optional_type(t: type) -> type:
     """ Given an Optional[...], return the wrapped type """
-    if typing.get_origin(t) is Union:
+    if get_origin(t) is Union:
         # Optional[...] = Union[..., NoneType]
         args = tuple(a
-                     for a in typing.get_args(t)
+                     for a in get_args(t)
                      if a is not type(None))
         if len(args) == 1:
             return args[0]
@@ -573,7 +581,7 @@ def unwrap_Optional_type(t: type) -> type:
 
 def get_function_return_type(function: callable) -> Union[type, Any]:
     """ Get the return value's type of a function """
-    return typing.get_type_hints(function).get('return', Any)
+    return get_type_hints(function).get('return', Any)
 
 
 def get_type_from_sqlalchemy_type(sa_type: TypeEngine) -> type:
