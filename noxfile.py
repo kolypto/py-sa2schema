@@ -9,7 +9,6 @@ nox.options.sessions = ['tests', 'tests_pydantic', 'tests_sqlalchemy']
 def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     """ Run all tests """
     session.run('poetry', 'install')
-    session.install('.')
 
     # Specific versions
     if sqlalchemy:
@@ -20,15 +19,10 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     session.run('pytest', 'tests/')
 
 
-@nox.session(python='3.8')
+@nox.session()
 @nox.parametrize(
     'pydantic',
     [
-        '1.0',
-        '1.1', '1.1.1',
-        '1.2',
-        '1.3',
-        '1.4',
         '1.5', '1.5.1',
         '1.6', '1.6.1',
     ]
@@ -38,7 +32,7 @@ def tests_pydantic(session, pydantic):
 
 
 
-@nox.session(python=['3.8'])
+@nox.session()
 @nox.parametrize(
     'sqlalchemy',
     [
