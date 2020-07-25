@@ -9,7 +9,10 @@ from sa2schema.attribute_info import AttributeInfo, NOT_PROVIDED, SAAttributeTyp
 
 
 class SAModel(BaseModel):
+    """ Base for SqlAlchemy models """
+
     class Config(BaseConfig):
+        # Enabling orm_mode makes pydantic pick attributes of objects when necessary
         orm_mode = True
 
 
@@ -18,6 +21,7 @@ ModelT = TypeVar('ModelT')
 
 def sa_model(Model: DeclarativeMeta, *,
              Parent: ModelT = SAModel,
+             module: str = None,
              types: AttributeType = AttributeType.COLUMN,
              only_readable: bool = False,
              only_writable: bool = False,
@@ -34,7 +38,9 @@ def sa_model(Model: DeclarativeMeta, *,
 
     Args:
         Model: the SqlAlchemy model to convert
-        Parent: base Pydantic model to use for a subclassed SqlAlchemy model. Use it to provide Config class
+        Parent: base Pydantic model to use for a subclassed SqlAlchemy model.
+            Note that sa_model() won't detect inheritance automatically; you've got to do it yourself!!
+            Can also use it to provide Config class
         types: attribute types to include. See AttributeType
         only_readable: only include fields that are readable. Useful for output models.
         only_writable: only include fields that are writable. Useful for input models.
@@ -45,6 +51,7 @@ def sa_model(Model: DeclarativeMeta, *,
     # Create the model
     pd_model = create_model(
         __model_name=Model.__name__,
+        __module__=module,
         __base__=Parent,
         **sa_model_fields(Model, types=types, exclude=exclude,
                           only_readable=only_readable, only_writable=only_writable)
@@ -77,7 +84,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
         a dict: attribute names => (type, Field)
     """
     # Model annotations will override any Column types
-    model_annotations = Model.__annotations__
+    model_annotations = getattr(Model, '__annotations__', {})
 
     # Walk attributes and generate Field()s
     return {

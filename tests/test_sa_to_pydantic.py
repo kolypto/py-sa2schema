@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, Type
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -6,6 +6,8 @@ from pydantic import BaseModel, ValidationError
 from sa2schema import AttributeType, sa2
 
 from .models import User, Article, EnumType
+from .models import JTI_Employee, JTI_Engineer
+from .models import STI_Employee, STI_Manager, STI_Engineer
 
 
 def test_sa_model_User_columns():
@@ -102,6 +104,146 @@ def test_sa_model_User_exotic():
     }
 
 
+def test_inheritance_JTI_Employee():
+    """ Test Joined Table Inheritance models """
+    pd_JTI_Employee = sa2.pydantic.sa_model(JTI_Employee)
+    assert issubclass(pd_JTI_Employee, BaseModel)
+    assert set(schema_attrs(pd_JTI_Employee)) == {
+        'id', 'name', 'type', 'company_id',
+    }
+
+    pd_JTI_Engineer = sa2.pydantic.sa_model(JTI_Engineer)
+    assert issubclass(pd_JTI_Engineer, BaseModel)  # wrong inheritance because not set explicitly
+    assert set(schema_attrs(pd_JTI_Engineer)) == {
+        # inherited
+        'id', 'name', 'type', 'company_id',
+        # self
+        'engineer_name',
+    }
+
+    # let's do it right
+    pd_JTI_Engineer = sa2.pydantic.sa_model(JTI_Engineer, Parent=pd_JTI_Employee)
+    assert issubclass(pd_JTI_Engineer, pd_JTI_Employee)  # correct inheritance
+
+    # use it
+    engineer = pd_JTI_Engineer(id=1, name='John', type='engineer', engineer_name='Mr. Mech')
+    assert isinstance(engineer, BaseModel)
+    assert isinstance(engineer, pd_JTI_Employee)
+    assert isinstance(engineer, pd_JTI_Engineer)
+
+
+def test_inheritance_STI_Employee():
+    """ Test Single Table Inheritance models """
+    pd_STI_Employee = sa2.pydantic.sa_model(STI_Employee)
+    assert set(schema_attrs(pd_STI_Employee)) == {
+        'id', 'name', 'type',
+    }
+
+    pd_STI_Manager = sa2.pydantic.sa_model(STI_Manager, Parent=pd_STI_Employee)
+    assert issubclass(pd_STI_Manager, pd_STI_Employee)  # correct inheritance
+    assert set(schema_attrs(pd_STI_Manager)) == {
+        # inherited
+        'id', 'name', 'type',
+        # self
+        'manager_data', 'company_id',
+    }
+
+    pd_STI_Engineer = sa2.pydantic.sa_model(STI_Engineer, Parent=pd_STI_Employee)
+    assert issubclass(pd_STI_Engineer, pd_STI_Employee)  # correct inheritance
+    assert set(schema_attrs(pd_STI_Engineer)) == {
+        # inherited
+        'id', 'name', 'type',
+        # self
+        'engineer_info',
+    }
+
+
+
+def test_experiment_with_forward_references():
+    """ ForwardRef experiments """
+
+    # This is a playground.
+    # First, see how pydantic classes play with forward references
+
+    from typing import List, Optional, ForwardRef
+
+
+    class pd_User(BaseModel):
+        id: int = ...
+        articles: List[ForwardRef('pd_Article')] = ...
+
+
+    class pd_Article(BaseModel):
+        id: int = ...
+        user: Optional[ForwardRef('pd_User')] = ...
+
+    def play_with_it():
+        # evaluate forward references
+        pd_User.update_forward_refs(pd_User=pd_User, pd_Article=pd_Article)
+        # don't have to give all those variables to it
+        pd_Article.update_forward_refs(**locals())
+
+        pd_User(id=1, articles=[pd_Article(id=1, user=None)])
+        pd_User(id=1, articles=[pd_Article(id=1, user=None)])
+        pd_Article(id=1, user=None)
+        pd_Article(id=1, user=pd_User(id=1, articles=[]))
+
+    play_with_it()
+
+
+
+
+    # Now do the same thing, but with dynamic class creation
+    pd_User = type('pd_User', (BaseModel,), dict(
+        id=...,
+        articles=...,
+        __module__=__name__,
+        __annotations__=dict(
+            id=int,
+            articles=List[ForwardRef('pd_Article')],
+        )
+    ))
+
+    pd_Article = type('pd_Article', (BaseModel,), dict(
+        id=...,
+        user=...,
+        __module__=__name__,
+        __annotations__=dict(
+            id=int,
+            user=Optional[ForwardRef('pd_User')],
+        )
+    ))
+
+    play_with_it()
+
+
+    # Now do the same thing, but with create_model()
+
+    from pydantic import create_model
+
+    pd_User = create_model(
+        'pd_User',
+        __module__=__name__,
+        id=(int, ...),
+        articles=(
+            List[ForwardRef('pd_Article')],
+            ...
+        ),
+    )
+
+    pd_Article = create_model(
+        'pd_Article',
+        __module__=__name__,
+        id=(int, ...),
+        user=(
+            Optional[ForwardRef('pd_User')],
+            ...
+        )
+    )
+
+    play_with_it()
+
+
 @pytest.mark.skip('Not yet supported')
 def test_sa_model_User_relationships():
     """ User: RELATIONSHIP, DYNAMIC_LOADER, ASSOCIATION_PROXY """
@@ -131,7 +273,7 @@ def test_sa_model_User_composite():
 
 
 # Extract __fields__ from schema
-def schema_attrs(schema: BaseModel):
+def schema_attrs(schema: Type[BaseModel]) -> Dict[str, dict]:
     return {
         field.alias: dict(type=field.type_, required=field.required, default=field.default)
         for field in schema.__fields__.values()
