@@ -8,6 +8,8 @@ class AttributeType(Flag):
 
     This is a set of flags that can be combined to define which fields to use
     """
+    NONE = 0  # empty value
+
     # Regular columns
     COLUMN = auto()
 
@@ -45,5 +47,5 @@ class AttributeType(Flag):
     ALL_COLUMNS = COLUMN | COMPOSITE | EXPRESSION
     ALL_PROPERTIES = PROPERTY_RW | HYBRID_PROPERTY_RW
     ALL_LOCAL_FIELDS = ALL_COLUMNS | ALL_PROPERTIES  # everything you can get without joining, without HYBRID_METHOD
-    ALL_RELATIONSHIPS = RELATIONSHIP | ASSOCIATION_PROXY  # note: no dynamic loader here (safeguard)
+    ALL_RELATIONSHIPS = RELATIONSHIP | ASSOCIATION_PROXY  # note: no dynamic loader here (safeguard: these can be large!)
     ALL = ALL_LOCAL_FIELDS | ALL_RELATIONSHIPS | DYNAMIC_LOADER | HYBRID_METHOD | APPLICATION_CUSTOM

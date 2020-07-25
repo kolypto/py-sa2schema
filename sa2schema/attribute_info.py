@@ -19,7 +19,7 @@ from __future__ import annotations
 from copy import copy
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import get_type_hints
+from typing import get_type_hints, ForwardRef
 from typing import Any, Optional, Union, Callable, Iterable, TypeVar, Type, List, Set, Dict, Generic
 
 from pydantic.utils import lenient_issubclass
@@ -366,6 +366,15 @@ class CompositeInfo(AttributeInfo):
             doc=attr.property.doc
         )
 
+    def replace_value_type(self, value_type: Union[type, ForwardRef]) -> CompositeInfo:
+        """ Get a copy with `value_type` replaced.
+
+        see: RelationshipInfo.replace_model() for more information
+        """
+        info = copy(self)
+        info.value_type = value_type
+        return info
+
 
 @dataclass
 class RelationshipInfo(AttributeInfo):
@@ -433,8 +442,7 @@ class RelationshipInfo(AttributeInfo):
         collection_class = prop.collection_class or (list if prop.uselist else None)
 
         # Wrap into the collection class
-        if prop.uselist:
-            value_type = wrap_type_into_collection_class(value_type, collection_class)
+        value_type = cls._wrap_value_type_with_collection_class(prop, collection_class, value_type)
 
         return cls(
             attribute_type=AttributeType.RELATIONSHIP,
@@ -450,7 +458,14 @@ class RelationshipInfo(AttributeInfo):
             doc=prop.doc,
         )
 
-    def replace_model(self, Model: DeclarativeMeta) -> RelationshipInfo:
+    @staticmethod
+    def _wrap_value_type_with_collection_class(prop, collection_class, value_type):
+        if prop.uselist:
+            return wrap_type_into_collection_class(value_type, collection_class)
+        else:
+            return value_type
+
+    def replace_model(self, Model: Union[DeclarativeMeta, ForwardRef, type]) -> RelationshipInfo:
         """ Replace the model type with another type.
 
         This is needed by the SqlAlchemy-to-Pydantic converter: you can't just keep referring to SqlAlchemy models
@@ -522,6 +537,12 @@ class AssociationProxyInfo(AttributeInfo):
     * default: NOT_PROVIDED
     * doc: none
     """
+    # The model the relationship refers to
+    target_model: DeclarativeMeta
+
+    # Collection class: may be a type, or some sort of callable
+    collection_class: Optional[Union[type, Callable]]
+
     @staticmethod
     def extracts() -> AttributeType:
         return AttributeType.ASSOCIATION_PROXY
@@ -536,10 +557,8 @@ class AssociationProxyInfo(AttributeInfo):
         value_type = get_type_from_sqlalchemy_type(attr.remote_attr.type)
 
         # Wrap with collection class
-        if collection_class is None or issubclass(collection_class, dict):
-            value_type = Dict[value_type, attr.target_class]
-        else:
-            value_type = wrap_type_into_collection_class(value_type, collection_class)
+        target_model = attr.target_class
+        value_type = cls._wrap_value_type_with_collection_class(target_model, value_type, collection_class)
 
         return cls(
             attribute_type=AttributeType.ASSOCIATION_PROXY,
@@ -548,9 +567,29 @@ class AssociationProxyInfo(AttributeInfo):
             readable=True,
             writable=False,
             value_type=value_type,
+            target_model=attr.target_class,
+            collection_class=collection_class,
             default=NOT_PROVIDED,
             doc=None,
         )
+
+    @staticmethod
+    def _wrap_value_type_with_collection_class(target_model, value_type, collection_class):
+        if collection_class is None or issubclass(collection_class, dict):
+            return Dict[value_type, target_model]
+        else:
+            return wrap_type_into_collection_class(value_type, collection_class)
+
+    def replace_model(self, Model: Union[DeclarativeMeta, ForwardRef, type]) -> AssociationProxyInfo:
+        """ Replace the model type with another type.
+        
+        See: RelationshipInfo.replace_model()
+        """
+        info = copy(self)
+        value_type = get_type_from_sqlalchemy_type(info.attribute.remote_attr.type)
+        info.target_model = Model
+        info.value_type = self._wrap_value_type_with_collection_class(info.target_model, value_type, info.collection_class)
+        return info
 
 
 def is_Optional_type(t: type):

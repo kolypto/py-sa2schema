@@ -1,7 +1,8 @@
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, List, Set, Union, ForwardRef
 
 import pytest
 from pydantic import BaseModel, ValidationError
+from pydantic.fields import SHAPE_LIST, ModelField
 
 from sa2schema import AttributeType, sa2
 
@@ -158,7 +159,6 @@ def test_inheritance_STI_Employee():
     }
 
 
-
 def test_experiment_with_forward_references():
     """ ForwardRef experiments """
 
@@ -172,7 +172,6 @@ def test_experiment_with_forward_references():
         id: int = ...
         articles: List[ForwardRef('pd_Article')] = ...
 
-
     class pd_Article(BaseModel):
         id: int = ...
         user: Optional[ForwardRef('pd_User')] = ...
@@ -183,6 +182,21 @@ def test_experiment_with_forward_references():
         # don't have to give all those variables to it
         pd_Article.update_forward_refs(**locals())
 
+        # Check
+        assert schema_attrs(pd_User) == {
+            'id': {'type': int, 'required': True, 'default': None},
+            # It's normal that 'type' is without `List`.
+            # The type is stored in ModelField.shape, and can also be seen in ModelField.outer_type_
+            'articles': {'type': pd_Article, 'required': True, 'default': None}
+        }
+        assert pd_User.__fields__['articles'].shape == SHAPE_LIST
+
+        assert schema_attrs(pd_Article) == {
+            'id': {'type': int, 'required': True, 'default': None},
+            'user': {'type': pd_User, 'required': True, 'default': None}
+        }
+
+        # Play
         pd_User(id=1, articles=[pd_Article(id=1, user=None)])
         pd_User(id=1, articles=[pd_Article(id=1, user=None)])
         pd_Article(id=1, user=None)
@@ -244,37 +258,114 @@ def test_experiment_with_forward_references():
     play_with_it()
 
 
-@pytest.mark.skip('Not yet supported')
+
 def test_sa_model_User_relationships():
     """ User: RELATIONSHIP, DYNAMIC_LOADER, ASSOCIATION_PROXY """
     # the difficult thing is that in a relationship, create_model()
     # has to refer to other models that have not been created yet.
 
-    # Test User: relationships
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.RELATIONSHIP)
+    group = sa2.pydantic.Group(__name__, 'pd_{model}', types=AttributeType.RELATIONSHIP)
 
-    # Test Article: relationships
-    pd_Article = sa2.pydantic.sa_model(Article, types=AttributeType.RELATIONSHIP)
+    # Test User: relationships
+    pd_User = group.sa_model(User)
+    pd_Article = group.sa_model(Article)
+
+    group.update_forward_refs()  # got to do it
+
+
+    assert schema_attrs(pd_User) == {
+        # All references resolved
+        'articles_list': {'type': pd_Article, 'required': True, 'default': None},
+        'articles_set': {'type': pd_Article, 'required': True, 'default': None},
+        'articles_dict_attr': {'type': Union[List[ForwardRef('pd_Article')], Dict[Any, ForwardRef('pd_Article')]], 'required': True, 'default': None},
+        'articles_dict_keyfun': {'type': Union[List[ForwardRef('pd_Article')], Dict[Any, ForwardRef('pd_Article')]], 'required': True, 'default': None}
+    }
+
+    assert schema_attrs(pd_Article) == {
+        # All references resolved
+        'user': {'type': pd_User, 'required': False, 'default': None},
+    }
+
+    # Play with it
+
+    user = pd_User(articles_list=[],
+                   articles_set=set(),
+                   articles_dict_attr={},
+                   articles_dict_keyfun={},
+                   )
+
+    user = pd_User(articles_list=[pd_Article()],
+                   articles_set=set(),
+                   articles_dict_attr={},
+                   articles_dict_keyfun={},
+                   )
+
+    user = pd_User(articles_list=[],
+                   articles_set=set(),
+                   articles_dict_attr={'a': pd_Article()},
+                   articles_dict_keyfun={},
+                   )
+
+    article = pd_Article()
+
+    article = pd_Article(user=user)
 
     # Test User: dynamic loader
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.DYNAMIC_LOADER)
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.DYNAMIC_LOADER, forwardref='pd_{model}', module=__name__)
+    pd_User.update_forward_refs(**locals())  # manually
+
+    assert schema_attrs(pd_User) == {
+        # All references resolved
+        'articles_q': {'type': pd_Article, 'required': True, 'default': None},
+    }
 
     # Test User: association proxy
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY)
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY, forwardref='pd_{model}', module=__name__)
+    pd_User.update_forward_refs(**locals())  # manually
+
+    assert schema_attrs(pd_User) == {
+        # All references resolved
+        'article_titles': {'type': pd_Article, 'required': True, 'default': None},
+    }
 
 
-@pytest.mark.skip('Not yet supported')
 def test_sa_model_User_composite():
     """ User: COMPOSITE """
     # Difficulty: a composite refers to a type class which itself requires a pydantic model to work
 
     # Test User: composite
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.COMPOSITE)
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.COMPOSITE, module=__name__)
+
+    # resolution will fail: `Point` is not defined
+    with pytest.raises(NameError):
+        pd_User.update_forward_refs()
+
+    # Define a model for this custom class
+    # Notice that unlike relationships, we expect the model to have the very same name.
+    # You can provide is as a keyword to update_forward_refs() if it doesn't
+    class Point(BaseModel):
+        pass
+
+    # now it will work
+    pd_User.update_forward_refs(Point=Point)
+
+    # Check
+    assert schema_attrs(pd_User) == {
+        # All references resolved
+        'point': {'type': Point, 'required': True, 'default': None},
+        'synonym': {'type': Point, 'required': True, 'default': None},
+    }
 
 
 # Extract __fields__ from schema
 def schema_attrs(schema: Type[BaseModel]) -> Dict[str, dict]:
+    field: ModelField
     return {
-        field.alias: dict(type=field.type_, required=field.required, default=field.default)
+        field.alias: dict(
+            type=field.type_,
+            required=field.required,
+            # allow_none=field.allow_none,
+            default=field.default,
+        )
         for field in schema.__fields__.values()
     }

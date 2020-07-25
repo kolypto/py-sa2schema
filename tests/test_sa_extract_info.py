@@ -267,6 +267,8 @@ def test_sa_model_info_extraction__User():
             readable=True,
             writable=False,  # always false
             value_type=Dict[str, Article],  # dict: target column's type, target model
+            target_model=Article,
+            collection_class=dict,
             default=NOT_PROVIDED,
             doc=None,
         ),
