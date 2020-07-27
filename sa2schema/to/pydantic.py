@@ -1,12 +1,14 @@
 """ SA-Pydantic bridge between SqlAlchemy and Pydantic """
 from functools import partial
-from typing import Container, TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional
+from typing import TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional
 from pydantic.fields import Undefined
 from pydantic import BaseModel, BaseConfig, create_model, Field, Required
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
 from sa2schema import AttributeType, sa_model_info
-from sa2schema.attribute_info import AttributeInfo, NOT_PROVIDED, SAAttributeType, RelationshipInfo, CompositeInfo, AssociationProxyInfo
+from sa2schema.sa_extract_info import ExcludeFilterT
+from sa2schema.attribute_info import NOT_PROVIDED
+from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
 
 
 class SAModel(BaseModel):
@@ -17,12 +19,11 @@ class SAModel(BaseModel):
         orm_mode = True
 
 
+# Model class
 ModelT = TypeVar('ModelT')
 
 
-ExcludeFilterT = Union[Callable[[str, SAAttributeType], bool], Container[str]]
-
-
+# A forward reference generator function
 ForwardRefGeneratorT = Callable[[DeclarativeMeta], str]
 
 
