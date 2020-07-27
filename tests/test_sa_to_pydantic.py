@@ -1,4 +1,5 @@
-from typing import Any, Dict, Type, List, Set, Union, ForwardRef
+import inspect
+from typing import Any, Dict, Type, List, Set, Union, ForwardRef, Callable
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -14,7 +15,9 @@ from .models import STI_Employee, STI_Manager, STI_Engineer
 def test_sa_model_User_columns():
     """ User: COLUMN """
     # Test User: only columns
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.COLUMN, exclude=('int',))
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.COLUMN,
+                                    # Test exclusion by both name and column
+                                    exclude=('int', User.json_attr))
     assert schema_attrs(pd_User) == {
        'annotated_int': {'type': int, 'default': None, 'required': True},  # override from annotation!
         # note: `type` is always unwrappe by Pydantic. There never is `Optional[]` around it
@@ -22,7 +25,7 @@ def test_sa_model_User_columns():
        'documented': {'type': str, 'default': None, 'required': False},
        'enum': {'type': EnumType, 'default': None, 'required': False},
        # 'int': {'type': int, 'default': None, 'required': False},  # excluded
-       'json_attr': {'type': dict, 'default': None, 'required': False},
+       # 'json_attr': {'type': dict, 'default': None, 'required': False},  # excluded
        'optional': {'type': str, 'default': None, 'required': False},
        'required': {'type': str, 'default': None, 'required': True}
     }
@@ -357,15 +360,44 @@ def test_sa_model_User_composite():
     }
 
 
+def test_sa_model_User_make_optional():
+    """ User: make_optional() """
+
+    # Partial User
+    pd_User = sa2.pydantic.sa_model(User, make_optional=sa2.pydantic.ALL_BUT_PRIMARY_KEY)
+
+    assert schema_attrs_extract(pd_User, lambda field: dict(
+        required=field.required,
+        allow_none=field.allow_none,
+    )) == {
+        # Primary key: required, not nullable
+        'annotated_int': {'allow_none': False, 'required': True},
+        # Everything else is nullable and not required
+        'default': {'allow_none': True, 'required': False},
+        'documented': {'allow_none': True, 'required': False},
+        'enum': {'allow_none': True, 'required': False},
+        'int': {'allow_none': True, 'required': False},
+        'json_attr': {'allow_none': True, 'required': False},
+        'optional': {'allow_none': True, 'required': False},
+        'required': {'allow_none': True, 'required': False},
+    }
+
+
 # Extract __fields__ from schema
 def schema_attrs(schema: Type[BaseModel]) -> Dict[str, dict]:
+    """ Extract field info from a Pydantic schema """
+    return schema_attrs_extract(schema, lambda field: dict(
+        type=field.type_,
+        required=field.required,
+        # allow_none=field.allow_none,
+        default=field.default,
+    ))
+
+
+def schema_attrs_extract(schema: Type[BaseModel], extractor: Callable[[ModelField], dict]) -> Dict[str, dict]:
+    """ Walk a Pydantic model and extract info from every field with a callback """
     field: ModelField
     return {
-        field.alias: dict(
-            type=field.type_,
-            required=field.required,
-            # allow_none=field.allow_none,
-            default=field.default,
-        )
+        field.alias: extractor(field)
         for field in schema.__fields__.values()
     }

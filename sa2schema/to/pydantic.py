@@ -1,14 +1,16 @@
 """ SA-Pydantic bridge between SqlAlchemy and Pydantic """
 from functools import partial
-from typing import TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional
+from typing import TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional, Iterable
 from pydantic.fields import Undefined
 from pydantic import BaseModel, BaseConfig, create_model, Field, Required
+from sqlalchemy import inspect
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
 from sa2schema import AttributeType, sa_model_info
-from sa2schema.sa_extract_info import ExcludeFilterT
+from sa2schema.sa_extract_info import ExcludeFilterT, SAAttributeType, _ColumnsOrColumnNames
 from sa2schema.attribute_info import NOT_PROVIDED
 from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
+from sa2schema.attribute_info import Literal  # compatibility is there
 
 
 class SAModel(BaseModel):
@@ -23,8 +25,27 @@ class SAModel(BaseModel):
 ModelT = TypeVar('ModelT')
 
 
-# A forward reference generator function
-ForwardRefGeneratorT = Callable[[DeclarativeMeta], str]
+# A callable to choose fields for making them Optional[]
+# Returns `True` to make the field optional, `False` to leave it as it is
+MakeOptionalFilterFunction = Callable[[str, SAAttributeType], bool]
+
+
+# A filter to choose which fields to make Optional[]:
+# a function, or a set of field names, or `True` to make all of them optional
+MakeOptionalFilterT = Union[bool, Iterable[str], MakeOptionalFilterFunction]
+
+
+# A forward reference generator function(Model)->str
+# Returns the name for the forward reference
+ForwardRefGeneratorFunction = Callable[[DeclarativeMeta], str]
+
+
+# Forward reference pattern: a template '{model}Db', or a callable
+ForwardRefGeneratorT = Union[str, Literal[id], ForwardRefGeneratorFunction]
+
+
+# Make all fields optional except the primary key
+ALL_BUT_PRIMARY_KEY = object()
 
 
 class Group:
@@ -41,7 +62,7 @@ class Group:
 
     def __init__(self,
                  module: str,
-                 forwardref: Union[str, ForwardRefGeneratorT],
+                 forwardref: ForwardRefGeneratorT,
                  *,
                  types: AttributeType = AttributeType.COLUMN,
                  only_readable: bool = False,
@@ -73,7 +94,9 @@ class Group:
     def sa_model(self,
                  Model: DeclarativeMeta,
                  Parent: Type[ModelT] = SAModel,
+                 *,
                  types: AttributeType = AttributeType.NONE,
+                 make_optional: MakeOptionalFilterT = False,
                  exclude: ExcludeFilterT = (),
                  ) -> Type[ModelT]:
         """ Add a model to the group
@@ -83,10 +106,15 @@ class Group:
             Parent: base Pydantic model to use for a subclassed SqlAlchemy model.
                 Note that sa_model() won't detect inheritance automatically; you've got to do it yourself!!
                 Can also use it to provide Config class
-            types: more types
-            exclude: the list of fields to ignore, or a filter(name, attribute) to exclude fields dynamically
+            types: more types to add
+            make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
+                or a function(name, attribute) to select specific optional fields
+                Special case: `ALL_BUT_PRIMARY_KEY` will make all fields optional except for the primary key
+            exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
         """
-        model = self._sa_model(Model, Parent, exclude=exclude, types=self._types | types)
+        model = self._sa_model(Model, Parent,
+                               types=self._types | types,
+                               exclude=exclude, make_optional=make_optional)
         self.namespace[model.__name__] = model
         return model
 
@@ -101,10 +129,11 @@ def sa_model(Model: DeclarativeMeta,
              *,
              module: str = None,
              types: AttributeType = AttributeType.COLUMN,
+             make_optional: MakeOptionalFilterT = False,
              only_readable: bool = False,
              only_writable: bool = False,
              exclude: ExcludeFilterT = (),
-             forwardref: Union[str, ForwardRefGeneratorT] = None
+             forwardref: Optional[ForwardRefGeneratorT] = None
              ) -> Type[ModelT]:
     """ Create a Pydantic model from an SqlAlchemy model
 
@@ -123,9 +152,12 @@ def sa_model(Model: DeclarativeMeta,
         module: the module the model is going to be defined in.
             Be sure to set it when you use relationships! Weird errors may result if you don't.
         types: attribute types to include. See AttributeType
+        make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
+            or a function(name, attribute) to select specific optional fields.
+            Special case: `ALL_BUT_PRIMARY_KEY` will make all fields optional except for the primary key
         only_readable: only include fields that are readable. Useful for output models.
         only_writable: only include fields that are writable. Useful for input models.
-        exclude: the list of fields to ignore, or a filter(name, attribute) to exclude fields dynamically
+        exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
         forwardref: pattern for forward references to models. Can be:
             A string: something like '{model}Db', '{model}Input', '{model}Response'
             A callable(Model) to generate custom ForwardRef objects
@@ -145,14 +177,18 @@ def sa_model(Model: DeclarativeMeta,
             # like `KeyError(None)` on a line of code that doesn't do anything
 
     # forwardref
-    forwardref = prepare_forwardref_function(forwardref)
+    forwardref = _prepare_forwardref_function(forwardref)
+
+    # make_optional
+    make_optional = _prepare_make_optional_function(make_optional, Model)
 
     # Create the model
     pd_model = create_model(
         __model_name=generate_model_name(Model, forwardref),
         __module__=module,
         __base__=Parent,
-        **sa_model_fields(Model, types=types, exclude=exclude,
+        **sa_model_fields(Model, types=types,
+                          exclude=exclude, make_optional=make_optional,
                           only_readable=only_readable,
                           only_writable=only_writable,
                           forwardref=forwardref
@@ -164,11 +200,12 @@ def sa_model(Model: DeclarativeMeta,
 
 def sa_model_fields(Model: DeclarativeMeta, *,
                     types: AttributeType = AttributeType.COLUMN,
+                    make_optional: MakeOptionalFilterFunction,
                     only_readable: bool = False,
                     only_writable: bool = False,
                     exclude: ExcludeFilterT = (),
                     can_omit_nullable: bool = True,
-                    forwardref: Optional[ForwardRefGeneratorT],
+                    forwardref: Optional[ForwardRefGeneratorFunction],
                     ) -> Dict[str, Tuple[type, Field]]:
     """ Take an SqlAlchemy model and generate pydantic Field()s from it
 
@@ -179,9 +216,10 @@ def sa_model_fields(Model: DeclarativeMeta, *,
     Args:
         Model: the model to generate fields from
         types: attribute types to include. See AttributeType
+        make_optional: a function(name, attribute) that selects fields to make Optional[]
         only_readable: only include fields that are readable
         only_writable: only include fields that are writable
-        exclude: the list of fields to ignore, or a filter(name, attribute) to exclude fields dynamically
+        exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
         can_omit_nullable: `False` to make nullable fields and fields with defaults required.
         forwardref: optionally, a callable(Model) able to generate a forward reference.
             This is required for resolving relationship targets.
@@ -197,9 +235,9 @@ def sa_model_fields(Model: DeclarativeMeta, *,
     return {
         name: (
             # Field type
-            pydantic_field_type(name, info, model_annotations, forwardref),
+            pydantic_field_type(name, info, model_annotations, make_optional(name, info.attribute), forwardref),
             # Field() object
-            make_field(info, can_omit_nullable),
+            make_field(info, can_omit_nullable=can_omit_nullable),
         )
         for name, info in sa_model_info(Model, types=types, exclude=exclude).items()
         if (not only_readable or info.readable) and
@@ -208,14 +246,18 @@ def sa_model_fields(Model: DeclarativeMeta, *,
 
 
 def make_field(attr_info: AttributeInfo,
-               can_omit_nullable: bool=True,
+               can_omit_nullable: bool = True,
                ) -> Field:
     """ Create a Pydantic Field() from an AttributeInfo """
 
     # Pydantic uses `Required = ...` to indicate which nullable fields are required
     # `Undefined` for nullable fields will result in `None` being the default
     no_default = Undefined if can_omit_nullable else Required
+
+    # Generate fields
     return Field(
+        # Use the default.
+        # If no default... it's either optional or required, depending on `can_omit_nullable`
         default=no_default
                 if attr_info.default is NOT_PROVIDED else
                 attr_info.default,
@@ -224,7 +266,7 @@ def make_field(attr_info: AttributeInfo,
     )
 
 
-def generate_model_name(Model: DeclarativeMeta, forwardref: Optional[ForwardRefGeneratorT]) -> str:
+def generate_model_name(Model: DeclarativeMeta, forwardref: Optional[ForwardRefGeneratorFunction]) -> str:
     """ Generate a name for the model """
     if forwardref:
         return forwardref(Model)
@@ -232,28 +274,12 @@ def generate_model_name(Model: DeclarativeMeta, forwardref: Optional[ForwardRefG
         return Model.__name__
 
 
-def prepare_forwardref_function(forwardref: Optional[Union[ForwardRefGeneratorT, str]]) -> Optional[ForwardRefGeneratorT]:
-    """ Create a forward reference generator function
-
-    If the argument is a function, leave it as it is.
-    If the argument is a string, treat it like '{model}Input' pattern, and get a ForwardRef from it.
-    Otherwise, do nothing: return as it is.
-    """
-    # If a string is given, it's a pattern
-    if isinstance(forwardref, str):
-        forwardref_str = forwardref
-        assert '{model' in forwardref_str, 'The `forwardref` string must contain a reference to {model}'
-        return lambda model: forwardref_str.format(model=model.__name__)
-
-    # Otherwise, return as is
-    return forwardref
-
-
 def pydantic_field_type(attr_name: str,
                         attr_info: AttributeInfo,
                         model_annotations: Dict[str, type],
+                        make_optional: bool,
                         forwardref: Optional[ForwardRefGeneratorT],
-                        ):
+                        ) -> type:
     """ Choose a field type for pydantic """
     # For relationships, we use the forwardref() generator to replace it with a forward reference
     if isinstance(attr_info, (RelationshipInfo, AssociationProxyInfo)) and forwardref:
@@ -271,6 +297,57 @@ def pydantic_field_type(attr_name: str,
         # try to get the type override
         attr_name,
         # fall back to annotation types
-        attr_info.final_value_type
+        (
+            # if make_optional() selects it, make it Optional[]
+            Optional[attr_info.final_value_type]
+            if make_optional else
+            attr_info.final_value_type
+        )
     )
 
+
+def _prepare_forwardref_function(forwardref: Optional[ForwardRefGeneratorT]) -> Optional[ForwardRefGeneratorFunction]:
+    """ Given the `forwardref` argument, convert it into a guaranteed Optional[callable]
+
+    If the argument is a function, leave it as it is.
+    If the argument is a string, treat it like '{model}Input' pattern, and get a ForwardRef from it.
+    Otherwise, do nothing: return as it is.
+    """
+    # If a string is given, it's a pattern
+    if isinstance(forwardref, str):
+        forwardref_str = forwardref
+        assert '{model' in forwardref_str, 'The `forwardref` string must contain a reference to {model}'
+        return lambda model: forwardref_str.format(model=model.__name__)
+    # `None` is acceptable
+    elif forwardref is None:
+        return forwardref
+    # Callable is ok
+    elif isinstance(forwardref, Callable):
+        return forwardref
+    # Complain
+    else:
+        raise ValueError(forwardref)
+
+
+def _prepare_make_optional_function(make_optional: MakeOptionalFilterT, Model: ModelT) -> MakeOptionalFilterFunction:
+    """ Given the `make_optional` argument, convert it into a guaranteed callable """
+    # True, False, None: as is
+    if make_optional is None or make_optional is False:
+        return lambda name, attr: False
+    elif make_optional is True:
+        return lambda name, attr: True
+    # Special case: make all optional but the primary key
+    elif make_optional is ALL_BUT_PRIMARY_KEY:
+        primary_key_names = frozenset(c.key for c in inspect(Model).primary_key)
+        return lambda name, attr: name not in primary_key_names
+    # Callable is ok
+    elif isinstance(make_optional, Callable):
+        return make_optional
+    # Iterable: a list of columns / column names
+    elif isinstance(make_optional, Iterable):
+        make_optional = _ColumnsOrColumnNames(make_optional)
+        return lambda name, attr: name in make_optional or attr in make_optional
+
+    # Complain
+    else:
+        raise ValueError(make_optional)

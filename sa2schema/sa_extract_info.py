@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Union, Callable, Mapping, Dict, Iterable
+from typing import Union, Callable, Mapping, Dict, Iterable, Container
 
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.declarative import DeclarativeMeta
@@ -19,7 +19,7 @@ ExcludeFilterFunction = Callable[[str, SAAttributeType], bool]
 
 
 # Exclude filter: a function, or a set of field names
-ExcludeFilterT = Union[ExcludeFilterFunction, Iterable[str]]
+ExcludeFilterT = Union[Iterable[str], ExcludeFilterFunction]
 
 
 @lru_cache(typed=True)  # makes it really, really cheap to inspect models
@@ -44,11 +44,7 @@ def sa_model_info(Model: DeclarativeMeta, *,
     ]
 
     # Filter fields callable
-    if isinstance(exclude, Callable):
-        filter = exclude
-    else:
-        exclude = set(exclude)
-        filter = lambda name, attr: name in exclude
+    exclude = _prepare_exclude_function(exclude)
 
     # Apply InfoClasses' extraction to every attribute
     # If there is any weird attribute that is not supported, it is silently ignored.
@@ -56,7 +52,7 @@ def sa_model_info(Model: DeclarativeMeta, *,
         name: InfoClass.extract(attribute)
         for name, attribute in all_sqlalchemy_model_attributes(Model).items()
         for InfoClass in info_classes
-        if not filter(name, attribute) and InfoClass.matches(attribute, types)
+        if not exclude(name, attribute) and InfoClass.matches(attribute, types)
     }
 
 
@@ -79,7 +75,6 @@ def sa_attribute_info(Model: DeclarativeMeta, attribute_name: str) -> AttributeI
     raise AttributeType(f'Attribute {attribute_name!r} has a type that is not currently supported')
 
 
-
 def all_sqlalchemy_model_attributes(Model: DeclarativeMeta) -> Dict[str, SAAttributeType]:
     """ Get all attributes of an SqlAlchemy model (ORM + @property) """
     mapper: Mapper = class_mapper(Model)
@@ -98,3 +93,43 @@ def all_sqlalchemy_model_attributes(Model: DeclarativeMeta) -> Dict[str, SAAttri
         for name, prop in list(vars(Model).items())  # list() because it gets modified by descriptors as we iterate
         if name in mapper.all_orm_descriptors
            or isinstance(prop, property)}
+
+
+def _prepare_exclude_function(exclude: ExcludeFilterT) -> ExcludeFilterFunction:
+    """ Conver the `filter` argument into a guaranteed callable """
+    # Callable is ok
+    if isinstance(exclude, Callable):
+        return exclude
+    # Iterable: columns / column names
+    elif isinstance(exclude, Iterable):
+        exclude = _ColumnsOrColumnNames(exclude)
+        return lambda name, attr: name in exclude or attr in exclude
+    # Complain
+    else:
+        raise ValueError(exclude)
+
+
+class _ColumnsOrColumnNames:
+    """ A container that's able to store both columns and column names """
+    __slots__ = ('column_hashes', 'column_names')
+
+    def __init__(self, items: Iterable[Union[str, SAAttributeType]]):
+        column_names = []
+        columns = []
+
+        # Tell columns & names apart
+        for item in items:
+            if isinstance(item, str):
+                column_names.append(item)
+            else:
+                columns.append(item)
+
+        # Get ready
+        self.column_hashes = frozenset(id(column) for column in columns)
+        self.column_names = frozenset(column_names)
+
+    def __contains__(self, item: Union[str, SAAttributeType]):
+        if isinstance(item, str):
+            return item in self.column_names
+        else:
+            return id(item) in self.column_hashes
