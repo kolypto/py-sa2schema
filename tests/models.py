@@ -35,6 +35,8 @@ class User(Base):
     """ Model comment """
     __tablename__ = 'users'  # sqlalchemy wants it
 
+    _ignored = sa.Column(sa.String)
+
     # Annotated column: type will be taken from the annotation
     # In no other case an annotated column will be tested
     annotated_int: int = sa.Column(sa.String, primary_key=True)
@@ -127,6 +129,7 @@ class User(Base):
     # Dynamic loader
     articles_q = sa.orm.dynamic_loader(lambda: Article)
 
+# A simple model that relates to User
 
 class Article(Base):
     __tablename__ = 'articles'

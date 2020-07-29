@@ -16,6 +16,17 @@ def test_sa_model_info_extraction__User():
     """ Test sa_model_info(User) """
     generated_fields = sa_model_info(User, types=AttributeType.ALL, exclude=())
     expected_fields = {
+        '_ignored': ColumnInfo(  # not ignored in sa_model_info() ; ignored in sa_model()
+            attribute_type=AttributeType.COLUMN,
+            attribute=User._ignored,
+            nullable=True,
+            readable=True,
+            writable=True,
+            value_type=str,
+            default=None,
+            default_factory=None,
+            doc=None
+        ),
         'annotated_int': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.annotated_int,
@@ -329,6 +340,7 @@ def test_sa_model_info_extraction__User():
         name: attr.final_value_type
         for name, attr in generated_fields.items()
     } == {
+        '_ignored': Optional[str],
         'annotated_int': str,
         'int': Optional[int],
         'enum': Optional[EnumType],
@@ -540,11 +552,11 @@ def test_sa_model_info_arguments():
     """ Test sa_model_info() targeting arguments """
 
     assert set(sa_model_info(User, types=AttributeType.COLUMN)) == {
-        'annotated_int', 'int', 'enum', 'optional', 'required', 'default', 'documented', 'json_attr',
+        '_ignored', 'annotated_int', 'int', 'enum', 'optional', 'required', 'default', 'documented', 'json_attr',
     }
 
     assert set(sa_model_info(User, types=AttributeType.COLUMN, exclude=('int', 'enum', 'json_attr'))) == {
-        'annotated_int',                 'optional', 'required', 'default', 'documented',
+        '_ignored', 'annotated_int',                 'optional', 'required', 'default', 'documented',
     }
 
     assert set(sa_model_info(User, types=AttributeType.PROPERTY_R)) == {

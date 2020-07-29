@@ -1,4 +1,5 @@
 """ SA-Pydantic bridge between SqlAlchemy and Pydantic """
+
 from functools import partial
 from typing import TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional, Iterable
 from pydantic.fields import Undefined
@@ -144,6 +145,8 @@ def sa_model(Model: DeclarativeMeta,
     If any attribute of the SqlAlchemy model has a type hint, it will be used instead of the column type.
     Use this approach if sa_model() guessed any of the types incorrectly.
 
+    Note: it will ignore every field that starts with an underscore `_`.
+
     Args:
         Model: the SqlAlchemy model to convert
         Parent: base Pydantic model to use for a subclassed SqlAlchemy model.
@@ -241,7 +244,9 @@ def sa_model_fields(Model: DeclarativeMeta, *,
         )
         for name, info in sa_model_info(Model, types=types, exclude=exclude).items()
         if (not only_readable or info.readable) and
-           (not only_writable or info.writable)
+           (not only_writable or info.writable) and
+           # Hardcoded for now.
+           (not name.startswith('_'))  # exclude private properties. Consistent with Pydantic behavior.
     }
 
 
