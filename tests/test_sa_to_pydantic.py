@@ -261,7 +261,6 @@ def test_experiment_with_forward_references():
     play_with_it()
 
 
-
 def test_sa_model_User_relationships():
     """ User: RELATIONSHIP, DYNAMIC_LOADER, ASSOCIATION_PROXY """
     # the difficult thing is that in a relationship, create_model()
@@ -278,10 +277,10 @@ def test_sa_model_User_relationships():
 
     assert schema_attrs(pd_User) == {
         # All references resolved
-        'articles_list': {'type': pd_Article, 'required': True, 'default': None},
-        'articles_set': {'type': pd_Article, 'required': True, 'default': None},
-        'articles_dict_attr': {'type': Union[List[ForwardRef('pd_Article')], Dict[Any, ForwardRef('pd_Article')]], 'required': True, 'default': None},
-        'articles_dict_keyfun': {'type': Union[List[ForwardRef('pd_Article')], Dict[Any, ForwardRef('pd_Article')]], 'required': True, 'default': None}
+        'articles_list': {'type': pd_Article, 'required': False, 'default': None},
+        'articles_set': {'type': pd_Article, 'required': False, 'default': None},
+        'articles_dict_attr': {'type': pd_Article, 'required': False, 'default': None},
+        'articles_dict_keyfun': {'type': pd_Article, 'required': False, 'default': None}
     }
 
     assert schema_attrs(pd_Article) == {
@@ -319,7 +318,7 @@ def test_sa_model_User_relationships():
 
     assert schema_attrs(pd_User) == {
         # All references resolved
-        'articles_q': {'type': pd_Article, 'required': True, 'default': None},
+        'articles_q': {'type': pd_Article, 'required': False, 'default': None},
     }
 
     # Test User: association proxy
@@ -328,7 +327,7 @@ def test_sa_model_User_relationships():
 
     assert schema_attrs(pd_User) == {
         # All references resolved
-        'article_titles': {'type': pd_Article, 'required': True, 'default': None},
+        'article_titles': {'type': pd_Article, 'required': False, 'default': None},
     }
 
 

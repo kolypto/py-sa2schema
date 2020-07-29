@@ -261,6 +261,7 @@ def make_field(attr_info: AttributeInfo,
         default=no_default
                 if attr_info.default is NOT_PROVIDED else
                 attr_info.default,
+        default_factory=attr_info.default_factory,
         alias=None,  # sqlalchemy synonyms are installed later on
         title=attr_info.doc,  # `title` seems fine. `description` can be used for more verbose stuff
     )

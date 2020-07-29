@@ -24,6 +24,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=str,  # annotations are ignored here
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None
         ),
         'int': ColumnInfo(
@@ -34,6 +35,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=int,  # type is here
             default=None,  # nullable columns always have this default
+            default_factory=None,
             doc=None
         ),
         'enum': ColumnInfo(
@@ -44,6 +46,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=EnumType,  # type is here
             default=None,  # nullable column
+            default_factory=None,
             doc=None
         ),
         'optional': ColumnInfo(
@@ -54,6 +57,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=str,  # type is not wrapped in Optional[]
             default=None,  # nullable column
+            default_factory=None,
             doc=None
         ),
         'required': ColumnInfo(
@@ -64,6 +68,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=str,
             default=NOT_PROVIDED,  # non-nullable columns get this
+            default_factory=None,
             doc=None
         ),
         'default': ColumnInfo(
@@ -74,6 +79,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=str,
             default='value',  # default value
+            default_factory=None,
             doc=None
         ),
         'documented': ColumnInfo(
@@ -84,6 +90,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=str,
             default=None,  # nullable column
+            default_factory=None,
             doc='Some descriptive text'  # doc=text
         ),
         'json_attr': ColumnInfo(
@@ -95,6 +102,7 @@ def test_sa_model_info_extraction__User():
             # JSON defaults to dict in SqlAlchemy
             value_type=dict,
             default=None,  # nullable column
+            default_factory=None,
             doc=None
         ),
         'property_without_type': PropertyInfo(
@@ -105,6 +113,7 @@ def test_sa_model_info_extraction__User():
             writable=False,  # no setter
             value_type=Any,  # no idea
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None
         ),
         'property_typed': PropertyInfo(
@@ -115,6 +124,7 @@ def test_sa_model_info_extraction__User():
             writable=False,  # no setter
             value_type=str,
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None
         ),
         'property_documented': PropertyInfo(
@@ -125,6 +135,7 @@ def test_sa_model_info_extraction__User():
             writable=False,  # no setter
             value_type=Any,  # no return value
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=' Documented property '
         ),
         'property_nullable': PropertyInfo(
@@ -135,6 +146,7 @@ def test_sa_model_info_extraction__User():
             writable=False,  # no setter
             value_type=str,  # unwrapped
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None,
         ),
         'property_writable': PropertyInfo(
@@ -145,6 +157,7 @@ def test_sa_model_info_extraction__User():
             writable=True,  # with setter
             value_type=str,  # type
             default='default',  # from setter's argument
+            default_factory=None,
             doc=None,
         ),
         'hybrid_property_typed': HybridPropertyInfo(
@@ -155,6 +168,7 @@ def test_sa_model_info_extraction__User():
             writable=False,  # no setter
             value_type=str,  # type
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None,
         ),
         'hybrid_property_writable': HybridPropertyInfo(
@@ -165,6 +179,7 @@ def test_sa_model_info_extraction__User():
             writable=True,  # setter
             value_type=str,  # type
             default='default',  # from setter's argument
+            default_factory=None,
             doc=None,
         ),
         'hybrid_method_attr': HybridMethodInfo(
@@ -175,6 +190,7 @@ def test_sa_model_info_extraction__User():
             writable=False,
             value_type=Any,  # no return annotation
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None,
         ),
         'expression': ColumnExpressionInfo(
@@ -185,6 +201,7 @@ def test_sa_model_info_extraction__User():
             writable=False,
             value_type=int,  # sqlalchemy knows!
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None,
         ),
         'point': CompositeInfo(
@@ -195,6 +212,7 @@ def test_sa_model_info_extraction__User():
             writable=True,  # it's wriable
             value_type=Point,  # composite type
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None,
         ),
         'synonym': CompositeInfo(
@@ -206,6 +224,7 @@ def test_sa_model_info_extraction__User():
             writable=True,
             value_type=Point,
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=None,
         ),
         'articles_list': RelationshipInfo(
@@ -219,6 +238,7 @@ def test_sa_model_info_extraction__User():
             uselist=True,
             collection_class=list,
             default=NOT_PROVIDED,
+            default_factory=list,
             doc=None,
         ),
         'articles_set': RelationshipInfo(
@@ -232,6 +252,7 @@ def test_sa_model_info_extraction__User():
             uselist=True,
             collection_class=set,
             default=NOT_PROVIDED,
+            default_factory=set,
             doc=None,
         ),
         'articles_dict_attr': RelationshipInfo(
@@ -240,11 +261,12 @@ def test_sa_model_info_extraction__User():
             nullable=False,  # "no" when `uselist`
             readable=True,
             writable=True,
-            value_type=Union[List[Article], Dict[Any, Article]],  # can't guess
+            value_type=Dict[Any, Article],  # guessed the type!
             target_model=Article,
             uselist=True,
             collection_class=User.articles_dict_attr.property.collection_class,  # some weird class
             default=NOT_PROVIDED,
+            default_factory=dict,
             doc=None,
         ),
         'articles_dict_keyfun': RelationshipInfo(
@@ -253,11 +275,12 @@ def test_sa_model_info_extraction__User():
             nullable=False,  # "no" when `uselist`
             readable=True,
             writable=True,
-            value_type=Union[List[Article], Dict[Any, Article]],  # can't guess
+            value_type=Dict[Any, Article],  # guessed the type!
             target_model=Article,
             uselist=True,
             collection_class=User.articles_dict_keyfun.property.collection_class,  # some weird callable
             default=NOT_PROVIDED,
+            default_factory=dict,
             doc=None,
         ),
         'article_titles': AssociationProxyInfo(
@@ -270,6 +293,7 @@ def test_sa_model_info_extraction__User():
             target_model=Article,
             collection_class=dict,
             default=NOT_PROVIDED,
+            default_factory=dict,
             doc=None,
         ),
         'articles_q': DynamicLoaderInfo(
@@ -283,6 +307,7 @@ def test_sa_model_info_extraction__User():
             uselist=True,
             collection_class=list,
             default=NOT_PROVIDED,
+            default_factory=list,
             doc=None,
         ),
     }
@@ -291,14 +316,13 @@ def test_sa_model_info_extraction__User():
     assert set(generated_fields) == set(expected_fields)
 
     # Compare values
-    if True:
+    if False:
         assert generated_fields == expected_fields
     # Compare values one by one
     # May be easier to debug when the difference is too large
     else:
         for k in generated_fields:
-            print(k)
-            assert generated_fields[k] == expected_fields[k]
+            assert (k, generated_fields[k]) == (k, expected_fields[k])
 
     # Compare final values
     assert {
@@ -326,8 +350,8 @@ def test_sa_model_info_extraction__User():
         'synonym': Point,
         'articles_list': List[Article],
         'articles_set': Set[Article],
-        'articles_dict_attr': Union[List[Article], Dict[Any, Article]],  # no idea
-        'articles_dict_keyfun': Union[List[Article], Dict[Any, Article]],  # no idea
+        'articles_dict_attr': Dict[Any, Article],
+        'articles_dict_keyfun': Dict[Any, Article],
         'article_titles': Dict[str, Article],
         'articles_q': List[Article],
     }
@@ -349,6 +373,7 @@ def test_sa_model_info_extractin__Article():
             writable=True,
             value_type=int,
             default=NOT_PROVIDED,  # because not nullable
+            default_factory=None,
             doc=None
         ),
         'user_id': ColumnInfo(
@@ -359,6 +384,7 @@ def test_sa_model_info_extractin__Article():
             writable=True,
             value_type=int,  # Note: gotten through a ForeinKey()
             default=None,  # because nullable
+            default_factory=None,
             doc=None
         ),
         'title': ColumnInfo(
@@ -369,6 +395,7 @@ def test_sa_model_info_extractin__Article():
             writable=True,
             value_type=str,
             default=None,  # because nullable
+            default_factory=None,
             doc=None
         ),
         'user': RelationshipInfo(
@@ -382,6 +409,7 @@ def test_sa_model_info_extractin__Article():
             uselist=False,
             collection_class=None,
             default=None,  # because nullable
+            default_factory=None,
             doc=None
         ),
     }
@@ -413,6 +441,7 @@ def test_sa_model_info_extraction__JTI_Company():
             writable=True,
             value_type=int,
             default=NOT_PROVIDED,  # because not nullable
+            default_factory=None,
             doc=None
         ),
         'name': ColumnInfo(
@@ -423,6 +452,7 @@ def test_sa_model_info_extraction__JTI_Company():
             writable=True,
             value_type=str,
             default=None,
+            default_factory=None,
             doc=None
         ),
         'employees': RelationshipInfo(
@@ -436,6 +466,7 @@ def test_sa_model_info_extraction__JTI_Company():
             uselist=True,
             collection_class=list,
             default=NOT_PROVIDED,
+            default_factory=list,
             doc=None
         ),
     }
@@ -470,6 +501,7 @@ def test_sa_model_info_extraction__JTI_Employee():
         uselist=False,
         collection_class=None,
         default=None,
+        default_factory=None,
         doc=None
     )
 

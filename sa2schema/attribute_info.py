@@ -19,7 +19,7 @@ from __future__ import annotations
 from copy import copy
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import get_type_hints, ForwardRef
+from typing import get_type_hints, ForwardRef, Tuple
 from typing import Any, Optional, Union, Callable, Iterable, TypeVar, Type, List, Set, Dict, Generic
 
 from pydantic.utils import lenient_issubclass
@@ -84,6 +84,10 @@ class AttributeInfo:
 
     # Default value, or NOT_PROVIDED
     default: Union[Optional[Any], Literal[NOT_PROVIDED]]  # noqa
+
+    # Default value factory, or None
+    # Guaranteed to be a simple type, not some complicated SqlAlchemy wrapperN
+    default_factory: Optional[callable]
 
     # Documentation
     doc: Optional[str]
@@ -164,6 +168,7 @@ class ColumnInfo(AttributeInfo):
             writable=True,
             value_type=get_type_from_sqlalchemy_type(attr.expression.type),
             default=default,
+            default_factory=None,
             doc=attr.property.doc
         )
 
@@ -229,6 +234,7 @@ class PropertyInfo(AttributeInfo):
             writable=writable,
             value_type=value_type,
             default=default,
+            default_factory=None,
             doc=attr.__doc__,
         )
 
@@ -296,6 +302,7 @@ class HybridMethodInfo(AttributeInfo):
             writable=False,  # a method is not a writable entity... or is it?
             value_type=value_type,
             default=NOT_PROVIDED,
+            default_factory=None,
             doc=attr.func.__doc__,
         )
 
@@ -329,6 +336,7 @@ class ColumnExpressionInfo(AttributeInfo):
             writable=False,
             value_type=get_type_from_sqlalchemy_type(attr.expression.type),
             default=NOT_PROVIDED,  # not possible
+            default_factory=None,
             doc=attr.property.doc
         )
 
@@ -363,6 +371,7 @@ class CompositeInfo(AttributeInfo):
             writable=True,
             value_type=prop.composite_class,
             default=NOT_PROVIDED,  # not possible
+            default_factory=None,
             doc=attr.property.doc
         )
 
@@ -442,7 +451,7 @@ class RelationshipInfo(AttributeInfo):
         collection_class = prop.collection_class or (list if prop.uselist else None)
 
         # Wrap into the collection class
-        value_type = cls._wrap_value_type_with_collection_class(prop, collection_class, value_type)
+        default_factory, value_type = cls._wrap_value_type_with_collection_class(prop, collection_class, value_type)
 
         return cls(
             attribute_type=AttributeType.RELATIONSHIP,
@@ -455,6 +464,7 @@ class RelationshipInfo(AttributeInfo):
             uselist=prop.uselist,
             collection_class=collection_class,
             default=None if nullable else NOT_PROVIDED,
+            default_factory=default_factory,
             doc=prop.doc,
         )
 
@@ -463,7 +473,7 @@ class RelationshipInfo(AttributeInfo):
         if prop.uselist:
             return wrap_type_into_collection_class(value_type, collection_class)
         else:
-            return value_type
+            return None, value_type
 
     def replace_model(self, Model: Union[DeclarativeMeta, ForwardRef, type]) -> RelationshipInfo:
         """ Replace the model type with another type.
@@ -500,8 +510,7 @@ class RelationshipInfo(AttributeInfo):
         new.value_type = Model
 
         # re-do something that extract() has already done
-        if new.uselist:
-            new.value_type = wrap_type_into_collection_class(new.value_type, new.collection_class)
+        _, new.value_type = new._wrap_value_type_with_collection_class(new.attribute.property, new.collection_class, new.value_type)
 
         # Done
         return new
@@ -558,7 +567,7 @@ class AssociationProxyInfo(AttributeInfo):
 
         # Wrap with collection class
         target_model = attr.target_class
-        value_type = cls._wrap_value_type_with_collection_class(target_model, value_type, collection_class)
+        default_factory, value_type = cls._wrap_value_type_with_collection_class(target_model, value_type, collection_class)
 
         return cls(
             attribute_type=AttributeType.ASSOCIATION_PROXY,
@@ -570,13 +579,14 @@ class AssociationProxyInfo(AttributeInfo):
             target_model=attr.target_class,
             collection_class=collection_class,
             default=NOT_PROVIDED,
+            default_factory=default_factory,
             doc=None,
         )
 
     @staticmethod
     def _wrap_value_type_with_collection_class(target_model, value_type, collection_class):
         if collection_class is None or issubclass(collection_class, dict):
-            return Dict[value_type, target_model]
+            return dict, Dict[value_type, target_model]
         else:
             return wrap_type_into_collection_class(value_type, collection_class)
 
@@ -588,7 +598,7 @@ class AssociationProxyInfo(AttributeInfo):
         info = copy(self)
         value_type = get_type_from_sqlalchemy_type(info.attribute.remote_attr.type)
         info.target_model = Model
-        info.value_type = self._wrap_value_type_with_collection_class(info.target_model, value_type, info.collection_class)
+        _, info.value_type = self._wrap_value_type_with_collection_class(info.target_model, value_type, info.collection_class)
         return info
 
 
@@ -632,24 +642,31 @@ def get_type_from_sqlalchemy_type(sa_type: TypeEngine) -> type:
         return Any
 
 
-def wrap_type_into_collection_class(value_type: type, collection_class: type):
-    """ Wrap a type into a collection """
+def wrap_type_into_collection_class(value_type: type, collection_class: Union[type, callable]) -> Tuple[Optional[callable], Type]:
+    """ Wrap a type into a collection
+
+    Returns:
+        a tuple:
+        [0] default_factory: the factory of a default value
+        [1] type: the type for the value
+    """
     if lenient_issubclass(collection_class, (list, List)):
-        return List[value_type]
+        return list, List[value_type]
     elif lenient_issubclass(collection_class, (set, Set)):
-        return Set[value_type]
+        return set, Set[value_type]
     elif lenient_issubclass(collection_class, (dict, Dict)):
-        return Dict[Any, value_type]
+        return dict, Dict[Any, value_type]
     else:
         # Try it as a callable. Retreat in case of any error
         with suppress(Exception):
             # phew! it went fine!
-            return wrap_type_into_collection_class(value_type, collection_class())
+            collection_class_type = type(collection_class())
+            return wrap_type_into_collection_class(value_type, collection_class_type)
 
         # Nothing worked.
         # No idea what type this might be. Something iterable.
         # `collection_class` can be any callable producing miracles
-        return Union[List[value_type], Dict[Any, value_type]]
+        return None, Union[List[value_type], Dict[Any, value_type]]
 
 
 Class_T = TypeVar('Class_T')
