@@ -1,13 +1,18 @@
-import inspect
-from typing import Any, Dict, Type, List, Set, Union, ForwardRef, Callable
+from __future__ import annotations
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from typing import Any, Dict, Type, Callable, List, Optional, ForwardRef
+from pydantic import BaseModel, ValidationError, create_model
 from pydantic.fields import SHAPE_LIST, ModelField
+from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.base import instance_state
+from sqlalchemy.orm.state import InstanceState
 
 from sa2schema import AttributeType, sa2
+from sa2schema.to.pydantic import SALoadedModel
 
-from .models import User, Article, EnumType
+from .models import User, Article, Number, EnumType
 from .models import JTI_Employee, JTI_Engineer
 from .models import STI_Employee, STI_Manager, STI_Engineer
 
@@ -362,7 +367,27 @@ def test_sa_model_User_composite():
 def test_sa_model_User_make_optional():
     """ User: make_optional() """
 
-    # Partial User
+    # Partial User: make_optional=True
+    pd_User = sa2.pydantic.sa_model(User, make_optional=True)
+
+    everything_is_nullable = {
+       # Everything is nullable and not required
+        'annotated_int': {'allow_none': True, 'required': False},
+       'default': {'allow_none': True, 'required': False},
+       'documented': {'allow_none': True, 'required': False},
+       'enum': {'allow_none': True, 'required': False},
+       'int': {'allow_none': True, 'required': False},
+       'json_attr': {'allow_none': True, 'required': False},
+       'optional': {'allow_none': True, 'required': False},
+       'required': {'allow_none': True, 'required': False},
+    }
+
+    assert schema_attrs_extract(pd_User, lambda field: dict(
+        required=field.required,
+        allow_none=field.allow_none,
+    )) == everything_is_nullable
+
+    # Partial User, make_optional=ALL_BUT_PRIMARY_KEY
     pd_User = sa2.pydantic.sa_model(User, make_optional=sa2.pydantic.ALL_BUT_PRIMARY_KEY)
 
     assert schema_attrs_extract(pd_User, lambda field: dict(
@@ -374,6 +399,510 @@ def test_sa_model_User_make_optional():
         # This is because ALL_BUT_PRIMARY_KEY is used
         'annotated_int': {'allow_none': False, 'required': True},
     }
+
+
+def test_sa_model_from_orm_instance():
+    """ Test how GetterDict works with SqlAlchemy models, and how sa_model() works with it """
+    # Internally, it uses some really generic stuff (dir()) which might not always play nicely with SqlAlchemy
+    # in some complex cases like inheritance, default values, unloaded attributes, etc.
+
+
+    # Test 3 models: full, partial, partial & only loaded
+    pd_Number = sa2.pydantic.sa_model(Number)
+    pd_NumberPartial = sa2.pydantic.sa_model(Number, make_optional=True)
+    pdl_NumberPartial = sa2.pydantic.sa_model(Number, make_optional=True, Parent=SALoadedModel)
+
+    gd_original = create_model('').__config__.getter_dict
+    gd_sa = pd_Number.__config__.getter_dict
+    gd_sal = pdl_NumberPartial.__config__.getter_dict
+
+
+
+    # === Test: Number(), has no database identity, all defaults
+    n = Number()  # nothing's set
+
+    all_none = dict(id=None, n=None, nd1=None, nd2=None, nd3=None, d1=None, d2=None, d3=None)
+
+    # Try GetterDicts
+    assert dict(gd_original(n)) == dict(
+        # Everything's None
+        **all_none,
+        # Alien
+        metadata=Number.metadata,
+    )
+
+    assert dict(gd_sa(n)) == dict(
+        **all_none,
+        # metadata  # the alien is not reported
+    )
+
+    assert dict(gd_sal(n)) == all_none
+
+    # Try to extract
+
+    # pd_Number: will fail because it has required fields
+    with pytest.raises(ValidationError):
+        pd_Number.from_orm(n)  # ValidationError: can't return a partial model
+
+    # pd_NumberPartial: will succeed
+    pdn: pd_NumberPartial = pd_NumberPartial.from_orm(n)
+    assert pdn.dict() == dict(
+        **all_none,  # Everything's None
+        # metadata  # the alien is not reported
+    )
+
+    pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
+    assert pdl.dict() == all_none
+
+
+    # === Test: Number(), has no database identity, all values set
+    # Note: the primary key is not yet set :)
+    init_fields = dict(n=None, nd1=None, nd2=None, nd3=None, d1=0, d2=0, d3=0)
+    n = Number(**init_fields)
+
+    # Try GetterDicts
+    assert dict(gd_original(n)) == dict(
+        id=None,  # the default is here
+        **init_fields,  # same
+        metadata=Number.metadata  # WARNING: this is an alien that should not be here at all
+    )
+
+    assert dict(gd_sa(n)) == dict(
+        id=None,
+        **init_fields,
+        #metadata  # the alien is not reported
+    )
+
+    assert dict(gd_sal(n)) == dict(id=None, **init_fields)
+
+    # Try to extract
+
+    # pd_Number: will fail because it has required fields
+    with pytest.raises(ValidationError):
+        pd_Number.from_orm(n)  # ValidationError: can't return a partial model
+
+    # pd_NumberPartial: will succeed
+    pdn: pd_NumberPartial = pd_NumberPartial.from_orm(n)  # doesn't fail
+    assert pdn.dict() == dict(
+        **init_fields,  # exactly!
+        id=None,  # primary key
+    )
+
+    pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
+    assert pdl.dict() == dict(id=None, **init_fields)
+
+    # === Test: Number(), persistent, all fields loaded
+    committed_values = dict(id=1, n=None, nd1=None, nd2=None, nd3=None, d1=0, d2=0, d3=0)
+
+    n = Number()
+    for k, v in committed_values.items():
+        set_committed_value(n, k, v)
+
+    # extract
+
+    pd = pd_Number.from_orm(n)
+    assert pd.dict() == committed_values
+
+    pdn: pd_NumberPartial = pd_NumberPartial.from_orm(n)
+    assert pdn.dict() == committed_values
+
+    pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
+    assert pdl.dict() == committed_values
+
+    # === Test: Number(), persistent, all fields loaded, but modified
+    modified_values = dict(id=2, n=3, nd1=4, nd2=5, nd3=6)
+    final_modified_values = {**committed_values, **modified_values}
+
+    for k, v in modified_values.items():
+        setattr(n, k, v)
+
+    # extract
+
+    pd = pd_Number.from_orm(n)
+    assert pd.dict() == final_modified_values
+
+    pdn: pd_NumberPartial = pd_NumberPartial.from_orm(n)
+    assert pdn.dict() == final_modified_values
+
+    pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
+    assert pdl.dict() == final_modified_values
+
+
+    # === Test: Number(), persistent, unloaded and expired fields
+    n = sa_set_committed_state(Number(), id=1, n=2, nd1=3, nd2=4, nd3=5, d1=6, d2=7, d3=8)
+
+    # expire attributes (the way SqlAlchemy does it internally)
+    # This makes them unloaded, and SALoadedGetterDict will ignore them
+    expire_sa_instance(n,
+        'n', 'nd1', 'nd2',  # expire some nullable attributes
+        'd1', 'd2',  # expire some non-nullable attributes
+    )
+
+    # extract
+
+    with pytest.raises(sa_exc.DetachedInstanceError):
+        # Will fail because it will try to load an attribute, but there's no Session available ;)
+        # This is expected to fail because it uses the default Pydantic GetterDict
+        pd = pd_Number.from_orm(n)
+
+    with pytest.raises(sa_exc.DetachedInstanceError):
+        # Also attempts loading; can't do that in this test
+        pdn: pd_NumberPartial = pd_NumberPartial.from_orm(n)
+
+    pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)  # doesn't fail
+    assert pdl.dict() == dict(
+        id=1, nd3=5, d3=8,  # loaded
+        # all expired attributes are None
+        n=None, nd1=None, nd2=None,
+        d1=None, d2=None,
+    )
+
+
+def test_User_from_orm_instance():
+    """ Make a sa_model() from a complex entity and from_orm() it """
+    # Models
+    pd_User = sa2.pydantic.sa_model(User)
+    pdl_UserPartial = sa2.pydantic.sa_model(User, make_optional=True, Parent=SALoadedModel)
+
+    # Instances
+    with pytest.raises(ValidationError):
+        # Fails: required fields not provided
+        pd_User.from_orm(User())
+
+    with pytest.raises(ValidationError):
+        # Fails: required fields not provided
+        pd_User.from_orm(User(annotated_int='1'))
+
+    with pytest.raises(ValidationError):
+        # Fails: required fields not provided
+        pd_User.from_orm(User(annotated_int='1', required=2))
+
+    # This is the minimal user that works
+    user = User(annotated_int='1', required=2, default='3')
+
+    # extract
+    pd_user = pd_User.from_orm(user)
+    assert pd_user.dict() == dict(
+        # The values we've provided
+        annotated_int=1,
+        required='2',
+        default='3',
+        # Everyone else is `None`
+        int=None,
+        enum=None,
+        optional=None,
+        documented=None,
+        json_attr=None,
+    )
+
+    # Expire it
+    expire_sa_instance(user, *pd_user.dict())  # expire all keys
+
+    # extract
+    with pytest.raises(sa_exc.DetachedInstanceError):
+        # attempts loading
+        pd_User.from_orm(user)
+
+    pdl_user = pdl_UserPartial.from_orm(user)  # no error: ignores unloaded
+    assert pdl_user.dict() == dict(
+        # Everything's a None
+        annotated_int=None,
+        required=None,
+        default=None,
+        int=None,
+        enum=None,
+        optional=None,
+        documented=None,
+        json_attr=None,
+    )
+
+
+def test_plain_recursion():
+    """ Test how Pydantic works with recursion """
+    # Two classes that link to one another
+    # call them xUser and xArticle so they don't conflict with `User` and `Article` from the outer scope
+
+    class xUser(BaseModel):
+        id: int
+        articles: List[xArticle]
+
+    class xArticle(BaseModel):
+        id: int
+        author: Optional[xUser] = None
+
+    xUser.update_forward_refs(xArticle=xArticle)
+    xArticle.update_forward_refs(xUser=xUser)
+
+    # Link two models
+    article = xArticle(id=1)
+    user = xUser(id=1, articles=[article])
+
+    assert user.dict() == dict(
+        id=1,
+        articles=[{'author': None, 'id': 1}]
+    )
+
+    # Make a circular dependency
+    # No error here
+    article.author = user
+    user.articles = [article]
+
+    with pytest.raises(RecursionError):
+        # Okay, at the moment, Pydantic is not able to detect cyclic dependencies and just fails on those.
+        # This means that our models cannot have those.
+        # The problem is that SqlAlchemy routinely makes cyclic references; e.g. with relationships.
+        # Until this is solved, there is no solution to the problem.
+        # You just have to exclude those fields from your models.
+        user.dict()
+
+
+def test_User_from_orm_instance_with_relationships():
+    """ Use sa_model().from_orm() with relationships """
+    user_exclude = lambda name, attr: name not in ('articles_list',)
+
+    # === Test: Models
+    pd_models = sa2.pydantic.Group(__name__, types=AttributeType.RELATIONSHIP,
+                                   forwardref='pd_{model}')
+    pd_User = pd_models.sa_model(User, exclude=user_exclude)
+    pd_Article = pd_models.sa_model(Article,
+                                    types=AttributeType.COLUMN,  # also include columns
+                                    # Got to exclude fields that lead to cyclic dependencies.
+                                    # Pydantic can't handle that.
+                                    # TODO: (tag: pydantic-recursive) fix this behavior with SqlAlchemy converter; perhaps, with a GetterDict
+                                    exclude=('user',))
+    pd_models.update_forward_refs()
+
+    # Empty user
+    user = User()
+
+    pd_user = pd_User.from_orm(user)
+    assert pd_user.dict() == dict(
+        # Looks like they come straight from SqlAlchemy
+        articles_list=[]
+    )
+
+    # Article
+    article = Article(id=1, title='a')
+
+    pd_article = pd_Article.from_orm(article)
+    assert pd_article.dict() == dict(id=1, title='a', user_id=None)
+
+    # User with articles
+    user = User(articles_list=[article])  # NOTE: SqlAlchemy has already provided a bi-directional link
+
+    pd_user = pd_User.from_orm(user)
+    assert pd_user.dict() == dict(
+        articles_list=[
+            dict(id=1, title='a', user_id=None),  # can't have any `user`; otherwise, RecursionError
+        ],
+    )
+
+    # === Test: Partial models
+    pd_models_partial = sa2.pydantic.Group(__name__, types=AttributeType.RELATIONSHIP,
+                                           forwardref='pd_{model}Partial', make_optional=True)
+    pd_UserPartial = pd_models_partial.sa_model(User, exclude=user_exclude)
+    pd_ArticlePartial = pd_models_partial.sa_model(Article,
+                                                   # TODO: (tag: pydantic-recursive)
+                                                   exclude=('user',))
+    pd_models_partial.update_forward_refs()
+
+    # User with articles
+    article = Article(id=1, title='a')
+    user = User(articles_list=[article])
+
+    pd_user = pd_UserPartial.from_orm(user)
+    assert pd_user.dict() == dict(
+        articles_list=[
+            {}  # pd_ArticlePartial only has types=relationships :) so nothing's left of it
+        ],
+    )
+
+
+    # === Test: Partial models, only loaded
+    pdl_models_partial = sa2.pydantic.Group(__name__, types=AttributeType.RELATIONSHIP,
+                                            forwardref='pdl_{model}Partial', make_optional=True,
+                                            Base=SALoadedModel)
+    pdl_UserPartial = pdl_models_partial.sa_model(User, exclude=user_exclude)
+    pdl_ArticlePartial = pdl_models_partial.sa_model(Article,
+                                                    # TODO: (tag: pydantic-recursive)
+                                                    exclude=('user',))
+    pdl_models_partial.update_forward_refs()
+
+    # Make a User with unloaded relationships
+    article = Article(id=1, title='a')
+    user = sa_set_committed_state(User(), articles_list=[article])
+    expire_sa_instance(user, 'articles_list')
+
+    # Loaded model: will work fine
+    pdl_user = pdl_UserPartial.from_orm(user)
+    assert pdl_user.dict() == dict(
+        articles_list=None,  # not loaded (expired)
+    )
+
+
+def test_with_real_sqlalchemy_session(sqlite_session: Session):
+    ssn = sqlite_session
+
+    # One user, one article
+    article = Article(id=1, title='1')
+    user = User(annotated_int=1, default='', required='',
+                articles_list=[article])
+
+    # Populate the DB
+    ssn.begin()
+    ssn.add(user)
+    ssn.add(article)
+    ssn.commit()
+
+    # Prepare Pydantic models
+    # We'll be using partial, only-loaded, models
+    # We're interested in relationships (User) and columns (Article)
+    g = sa2.pydantic.Group(__name__,
+                           types=AttributeType.RELATIONSHIP,
+                           forwardref='pd_{model}Partial',
+                           make_optional=True, Base=SALoadedModel)
+
+    pd_UserPartial = g.sa_model(User)
+    pd_ArticlePartial = g.sa_model(Article,
+                                   types=AttributeType.COLUMN,
+                                   # TODO: (tag: pydantic-recursive)
+                                   exclude=('user',))
+    g.update_forward_refs()
+
+
+    # === Test: Columns: dummy Article (not in DB)
+    article = Article()  # no attributes set
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=None, title=None, user_id=None,  # all None
+    )
+
+    article = Article(id=1, title='1')  # some attributes set
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=1, title='1',
+        user_id=None,  # gets a `None`
+    )
+
+    # === Test: Columns: load a full Article
+    article = ssn.query(Article).first()
+
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=1, title='1', user_id='1',
+    )
+
+    # === Test: Columns: load a deferred Article
+    ssn.expunge_all()
+    article = ssn.query(Article).options(load_only('id')).first()
+
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=1,
+        title=None,  # not loaded
+        user_id=None,  # not loaded
+    )
+
+    # === Test: Columns: expired Article
+    article = ssn.query(Article).first()
+    ssn.expire(article)
+
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=None, title=None, user_id=None,  # all expired
+    )
+
+    # === Test: Relationships: dummy User
+    user = User()  # empty
+    pd_user = pd_UserPartial.from_orm(user)
+    assert pd_user.dict() == dict(
+        articles_list=None,
+        articles_set=None,
+        articles_dict_attr=None,
+        articles_dict_keyfun=None,
+    )
+
+    user = User(articles_list=[Article(title='')])  # with some articles
+    pd_user = pd_UserPartial.from_orm(user)
+    assert pd_user.dict() == dict(
+        articles_list=[{'id': None, 'title': '', 'user_id': None}],
+        articles_set=None,
+        articles_dict_attr=None,
+        articles_dict_keyfun=None,
+    )
+
+    # === Test: Relationships: load a deferred User
+    user = ssn.query(User).first()
+    assert pd_UserPartial.from_orm(user).dict() == dict(
+        articles_list=None,  # unloaded relationship not included
+        articles_set=None,
+        articles_dict_attr=None,
+        articles_dict_keyfun=None,
+    )
+
+    # === Test: Relationships: load a full User
+    user = ssn.query(User).options(joinedload(User.articles_list)).first()
+    assert pd_UserPartial.from_orm(user).dict() == dict(
+        articles_list=[
+            # Now included because loaded! Yay!
+            {'id': 1, 'title': '1', 'user_id': '1'}
+        ],
+        articles_set=None,
+        articles_dict_attr=None,
+        articles_dict_keyfun=None,
+    )
+
+    # === Test: Relationships: expired User
+    user = ssn.query(User).options(joinedload(User.articles_list)).first()
+    ssn.expire(user)
+
+    assert pd_UserPartial.from_orm(user).dict() == dict(
+        articles_list=None,  # expired now
+        articles_set=None,
+        articles_dict_attr=None,
+        articles_dict_keyfun=None,
+    )
+
+    # === Test: Columns: deleted
+    article = ssn.query(Article).first()
+    ssn.begin()
+    ssn.delete(article)
+    ssn.flush()
+
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=1, title='1', user_id='1',  # still available
+    )
+
+    ssn.rollback()  # bring the article back
+    article = ssn.query(Article).first()
+    assert article  # still around
+
+    # === Test: Relationships: deleted
+    user = ssn.query(User).options(joinedload(User.articles_list)).first()
+    ssn.begin()
+    ssn.delete(user)
+    ssn.flush()
+
+    pd_user = pd_UserPartial.from_orm(user)
+    assert pd_user.dict() == dict(
+        # Unbelievable. All relationships are loaded on delete() :)
+        # This is because SqlAlchemy was getting ready for active CASCADE
+        articles_list=[
+            {'id': 1, 'title': '1', 'user_id': None},
+        ],
+        articles_set=None,  # not loaded for some reason
+        articles_dict_attr={
+            1: {'id': 1, 'title': '1', 'user_id': None},
+        },
+        articles_dict_keyfun={
+            1001: {'id': 1, 'title': '1', 'user_id': None},
+        },
+    )
+
+
+
+# TODO: test field name conflicts with pydantic (aliasing)
 
 
 # Extract __fields__ from schema
@@ -394,3 +923,22 @@ def schema_attrs_extract(schema: Type[BaseModel], extractor: Callable[[ModelFiel
         field.alias: extractor(field)
         for field in schema.__fields__.values()
     }
+
+
+def sa_set_committed_state(obj: object, **committed_values):
+    """ Put values into an SqlAlchemy instance as if they were committed to the DB """
+    # Give it some DB identity so that SA thinks it can load something
+    state: InstanceState = instance_state(obj)
+    state.key = object()
+
+    # Set every attribute in such a way that SA thinkg that's the way it looks in the DB
+    for k, v in committed_values.items():
+        set_committed_value(obj, k, v)
+
+    return obj
+
+
+def expire_sa_instance(obj: object, *attribute_names):
+    """ Mark SqlAlchemy's instance fields as 'expired' """
+    state: InstanceState = instance_state(obj)
+    state._expire_attributes(state.dict, attribute_names)
