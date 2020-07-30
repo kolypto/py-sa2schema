@@ -1,13 +1,17 @@
 """ SA-Pydantic bridge between SqlAlchemy and Pydantic """
 
 from functools import partial
-from typing import TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional, Iterable
+from typing import TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional, Iterable, Iterator, Any, Set
 from pydantic.fields import Undefined
-from pydantic import BaseModel, BaseConfig, create_model, Field, Required
+from pydantic import BaseModel, BaseConfig, create_model, Field, Required, Extra
+from pydantic.utils import GetterDict
 from sqlalchemy import inspect
 from sqlalchemy.ext.declarative import DeclarativeMeta
+from sqlalchemy.orm.base import instance_state
+from sqlalchemy.orm.state import InstanceState
 
 from sa2schema import AttributeType, sa_model_info
+from sa2schema.sa_extract_info import all_sqlalchemy_model_attribute_names
 from sa2schema.sa_extract_info import ExcludeFilterT, SAAttributeType, _ColumnsOrColumnNames
 from sa2schema.attribute_info import NOT_PROVIDED
 from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
@@ -23,7 +27,7 @@ class SAModel(BaseModel):
 
 
 # Model class
-ModelT = TypeVar('ModelT')
+ModelT = TypeVar('ModelT', bound=Type[BaseModel])
 
 
 # A callable to choose fields for making them Optional[]
@@ -66,6 +70,8 @@ class Group:
                  forwardref: ForwardRefGeneratorT,
                  *,
                  types: AttributeType = AttributeType.COLUMN,
+                 Base: Type[ModelT] = SAModel,
+                 make_optional: MakeOptionalFilterT = False,
                  only_readable: bool = False,
                  only_writable: bool = False,
                  ):
@@ -75,6 +81,10 @@ class Group:
             module: The __name__ of the defining module
             forwardref: a '{model}Input' pattern, or a callable(Model)->ForwardRef
             types: attribute types to include. See AttributeType
+            Base: base Pydantic model to use. Can also use it to provide Config class
+            make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
+                            or a function(name, attribute) to select specific optional fields
+                            Special case: `ALL_BUT_PRIMARY_KEY` will make all fields optional except for the primary key
             only_readable: only include fields that are readable. Useful for output models.
             only_writable: only include fields that are writable. Useful for input models.
         """
@@ -82,40 +92,38 @@ class Group:
         self._sa_model = partial(
             sa_model,
             module=module,
+            make_optional=make_optional,
             only_readable=only_readable,
             only_writable=only_writable,
             forwardref=forwardref
         )
 
+        self._base = Base
         self._types = types
 
         # remember these models
         self.namespace = {}
 
     def sa_model(self,
-                 Model: DeclarativeMeta,
-                 Parent: Type[ModelT] = SAModel,
+                 Model: Type[SAModelT],
+                 Parent: Optional[Type[ModelT]] = None,
                  *,
                  types: AttributeType = AttributeType.NONE,
-                 make_optional: MakeOptionalFilterT = False,
                  exclude: ExcludeFilterT = (),
-                 ) -> Type[ModelT]:
+                 ) -> Union[Type[ModelT], Type[SAModel], Type[BaseModel]]:
         """ Add a model to the group
 
         Args:
             Model: the SqlAlchemy model to convert
-            Parent: base Pydantic model to use for a subclassed SqlAlchemy model.
+            Parent: parent Pydantic model to use for for proper inheritance set up.
                 Note that sa_model() won't detect inheritance automatically; you've got to do it yourself!!
-                Can also use it to provide Config class
             types: more types to add
-            make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
-                or a function(name, attribute) to select specific optional fields
-                Special case: `ALL_BUT_PRIMARY_KEY` will make all fields optional except for the primary key
             exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
         """
-        model = self._sa_model(Model, Parent,
+        model = self._sa_model(Model,
+                               Parent=Parent or self._base,
                                types=self._types | types,
-                               exclude=exclude, make_optional=make_optional)
+                               exclude=exclude)
         self.namespace[model.__name__] = model
         return model
 
@@ -125,7 +133,7 @@ class Group:
             model.update_forward_refs(**self.namespace)
 
 
-def sa_model(Model: DeclarativeMeta,
+def sa_model(Model: Type[SAModelT],
              Parent: Type[ModelT] = SAModel,
              *,
              module: str = None,
@@ -135,7 +143,7 @@ def sa_model(Model: DeclarativeMeta,
              only_writable: bool = False,
              exclude: ExcludeFilterT = (),
              forwardref: Optional[ForwardRefGeneratorT] = None
-             ) -> Type[ModelT]:
+             ) -> Union[Type[ModelT], Type[SAModel], Type[BaseModel]]:
     """ Create a Pydantic model from an SqlAlchemy model
 
     It will go through all attributes of the given SqlAlchemy model and use this information to create fields:
@@ -298,18 +306,15 @@ def pydantic_field_type(attr_name: str,
             ForwardRef(attr_info.value_type.__name__)
         )
 
+    # Get the type
+    type_ = model_annotations.get(attr_name, attr_info.final_value_type)
+
+    # make_optional?
+    if make_optional:
+        type_ = Optional[type_]
+
     # Done
-    return model_annotations.get(
-        # try to get the type override
-        attr_name,
-        # fall back to annotation types
-        (
-            # if make_optional() selects it, make it Optional[]
-            Optional[attr_info.final_value_type]
-            if make_optional else
-            attr_info.final_value_type
-        )
-    )
+    return type_
 
 
 def _prepare_forwardref_function(forwardref: Optional[ForwardRefGeneratorT]) -> Optional[ForwardRefGeneratorFunction]:

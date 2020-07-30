@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 
 import sqlalchemy as sa
+from sqlalchemy import select
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
@@ -140,8 +141,23 @@ class Article(Base):
 
     user = sa.orm.relationship(User, back_populates='articles_list')
 
+# A separate model with required & default fields to test validation
 
+class Number(Base):
+    __tablename__ = 'animals'
 
+    id = sa.Column(sa.Integer, primary_key=True)
+
+    # nullable, no default
+    n = sa.Column(sa.Integer, nullable=True)
+    # nullable, default
+    nd1 = sa.Column(sa.Integer, nullable=True, default=100)
+    nd2 = sa.Column(sa.Integer, nullable=True, default=lambda: 100)
+    nd3 = sa.Column(sa.Integer, nullable=True, default=select([1]))
+    # not nullable, default
+    d1 = sa.Column(sa.Integer, nullable=False, default=100)
+    d2 = sa.Column(sa.Integer, nullable=False, default=lambda: 100)
+    d3 = sa.Column(sa.Integer, nullable=False, default=select([1]))
 
 # region: Table Inheritance examples
 

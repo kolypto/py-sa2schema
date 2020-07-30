@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Union, Callable, Mapping, Dict, Iterable, Container
+from typing import Union, Callable, Mapping, Dict, Iterable, Sequence
 
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.declarative import DeclarativeMeta
@@ -113,6 +113,9 @@ def _prepare_exclude_function(exclude: ExcludeFilterT) -> ExcludeFilterFunction:
     # Callable is ok
     if isinstance(exclude, Callable):
         return exclude
+    # A falsy value, like empty tuple
+    elif not exclude:
+        return lambda name, attr: False  # a high-performance shortcut
     # Iterable: columns / column names
     elif isinstance(exclude, Iterable):
         exclude = _ColumnsOrColumnNames(exclude)

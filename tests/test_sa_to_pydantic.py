@@ -369,16 +369,10 @@ def test_sa_model_User_make_optional():
         required=field.required,
         allow_none=field.allow_none,
     )) == {
+        **everything_is_nullable,
         # Primary key: required, not nullable
+        # This is because ALL_BUT_PRIMARY_KEY is used
         'annotated_int': {'allow_none': False, 'required': True},
-        # Everything else is nullable and not required
-        'default': {'allow_none': True, 'required': False},
-        'documented': {'allow_none': True, 'required': False},
-        'enum': {'allow_none': True, 'required': False},
-        'int': {'allow_none': True, 'required': False},
-        'json_attr': {'allow_none': True, 'required': False},
-        'optional': {'allow_none': True, 'required': False},
-        'required': {'allow_none': True, 'required': False},
     }
 
 
