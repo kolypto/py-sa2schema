@@ -394,7 +394,7 @@ def test_sa_model_info_extractin__Article():
             nullable=True,
             readable=True,
             writable=True,
-            value_type=int,  # Note: gotten through a ForeinKey()
+            value_type=str,  # Note: gotten through a ForeinKey()
             default=None,  # because nullable
             default_factory=None,
             doc=None
@@ -434,7 +434,7 @@ def test_sa_model_info_extractin__Article():
         for name, attr in generated_fields.items()
     } == {
         'id': int,
-        'user_id': Optional[int],
+        'user_id': Optional[str],
         'title': Optional[str],
         'user': Optional[User],
     }

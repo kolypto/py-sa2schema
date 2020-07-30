@@ -135,7 +135,7 @@ class Article(Base):
     __tablename__ = 'articles'
 
     id = sa.Column(sa.Integer, primary_key=True)
-    user_id = sa.Column(sa.ForeignKey(User.int))
+    user_id = sa.Column(sa.ForeignKey(User.annotated_int))
     title = sa.Column(sa.String)
 
     user = sa.orm.relationship(User, back_populates='articles_list')
