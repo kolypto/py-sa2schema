@@ -75,6 +75,7 @@ def sa_attribute_info(Model: DeclarativeMeta, attribute_name: str) -> AttributeI
     raise AttributeType(f'Attribute {attribute_name!r} has a type that is not currently supported')
 
 
+@lru_cache(typed=True)
 def all_sqlalchemy_model_attributes(Model: DeclarativeMeta) -> Dict[str, SAAttributeType]:
     """ Get all attributes of an SqlAlchemy model (ORM + @property) """
     mapper: Mapper = class_mapper(Model)
@@ -95,8 +96,20 @@ def all_sqlalchemy_model_attributes(Model: DeclarativeMeta) -> Dict[str, SAAttri
            or isinstance(prop, property)}
 
 
+@lru_cache(typed=True)
+def all_sqlalchemy_model_attribute_names(Model: DeclarativeMeta) -> Sequence[str]:
+    """ Get all attribute names of an SqlAlchemy model (ORM + @property) """
+    mapper: Mapper = class_mapper(Model)
+    return tuple(
+        name
+        for name, prop in list(vars(Model).items())  # list() because it gets modified by descriptors as we iterate
+        if name in mapper.all_orm_descriptors
+           or isinstance(prop, property)
+    )
+
+
 def _prepare_exclude_function(exclude: ExcludeFilterT) -> ExcludeFilterFunction:
-    """ Conver the `filter` argument into a guaranteed callable """
+    """ Convert the `filter` argument into a guaranteed callable """
     # Callable is ok
     if isinstance(exclude, Callable):
         return exclude
