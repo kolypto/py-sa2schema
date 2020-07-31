@@ -440,6 +440,78 @@ def test_sa_model_info_extractin__Article():
     }
 
 
+def test_sa_model_info_extractin__Number():
+    """ Test sa_model_info(Number): test for defaults """
+    common_field_info = dict(
+        attribute_type=AttributeType.COLUMN,
+        readable=True,
+        writable=True,
+        value_type=int,
+        doc=None
+    )
+
+    generated_fields = sa_model_info(Number, types=AttributeType.ALL, exclude=())
+    expected_fields = {
+        'id': ColumnInfo(
+            attribute=Number.id,
+            nullable=False,  # primary key
+            default=NOT_PROVIDED,  # because not nullable
+            default_factory=None,
+            **common_field_info
+        ),
+        'n': ColumnInfo(
+            attribute=Number.n,
+            nullable=True,  # nullable
+            default=None,  # because nullable
+            default_factory=None,
+            **common_field_info
+        ),
+        'nd1': ColumnInfo(
+            attribute=Number.nd1,
+            nullable=True,
+            default=100,
+            default_factory=None,
+            **common_field_info
+        ),
+        'nd2': ColumnInfo(
+            attribute=Number.nd2,
+            nullable=True,
+            default=NOT_PROVIDED,  # we don't work with callables
+            default_factory=None,
+            **common_field_info
+        ),
+        'nd3': ColumnInfo(
+            attribute=Number.nd3,
+            nullable=True,
+            default=NOT_PROVIDED,  # we don't work with expressions
+            default_factory=None,
+            **common_field_info
+        ),
+        'd1': ColumnInfo(
+            attribute=Number.d1,
+            nullable=False,
+            default=100,
+            default_factory=None,
+            **common_field_info
+        ),
+        'd2': ColumnInfo(
+            attribute=Number.d2,
+            nullable=False,
+            default=NOT_PROVIDED,  # we don't work with callables
+            default_factory=None,
+            **common_field_info
+        ),
+        'd3': ColumnInfo(
+            attribute=Number.d3,
+            nullable=False,
+            default=NOT_PROVIDED,  # we don't work with expressions
+            default_factory=None,
+            **common_field_info
+        ),
+    }
+
+    assert generated_fields == expected_fields
+
 
 def test_sa_model_info_extraction__JTI_Company():
     """ Test sa_model_info(JTI_Company) """

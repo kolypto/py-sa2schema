@@ -31,7 +31,7 @@ from sqlalchemy.orm import CompositeProperty, RelationshipProperty, ColumnProper
 from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
 from sqlalchemy.orm.base import InspectionAttr, MANYTOMANY, MANYTOONE, ONETOMANY
 from sqlalchemy.orm.dynamic import DynaLoader
-from sqlalchemy.sql import ColumnElement
+from sqlalchemy.sql import ColumnElement, Selectable
 from sqlalchemy.sql.elements import Label
 from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.util import symbol
@@ -154,7 +154,7 @@ class ColumnInfo(AttributeInfo):
             default = default.arg
         # SqlAlchemy supports defaults that are: callable, SQL expressions
         # we do not support that, so it's ignored.
-        if isinstance(default, (Callable, ColumnElement)):
+        if isinstance(default, (Callable, ColumnElement, Selectable)):
             default = NOT_PROVIDED
         # ignore `None` for non-nullable columns
         if default is None and not column.nullable:
