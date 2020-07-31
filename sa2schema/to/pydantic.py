@@ -190,7 +190,7 @@ class Group:
                  *,
                  types: AttributeType = AttributeType.NONE,
                  exclude: ExcludeFilterT = (),
-                 ) -> Union[Type[ModelT], Type[SAModel], Type[BaseModel]]:
+                 ) -> Type[BaseModel]:
         """ Add a model to the group
 
         Args:
@@ -223,7 +223,7 @@ def sa_model(Model: Type[SAModelT],
              only_writable: bool = False,
              exclude: ExcludeFilterT = (),
              forwardref: Optional[ForwardRefGeneratorT] = None
-             ) -> Union[Type[ModelT], Type[SAModel], Type[BaseModel]]:
+             ) -> Type[BaseModel]:
     """ Create a Pydantic model from an SqlAlchemy model
 
     It will go through all attributes of the given SqlAlchemy model and use this information to create fields:
