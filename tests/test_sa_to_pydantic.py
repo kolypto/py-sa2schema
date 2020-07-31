@@ -4,13 +4,14 @@ import pytest
 from typing import Any, Dict, Type, Callable, List, Optional, ForwardRef
 from pydantic import BaseModel, ValidationError, create_model
 from pydantic.fields import SHAPE_LIST, ModelField
+from pydantic.utils import GetterDict
 from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
 from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.base import instance_state
 from sqlalchemy.orm.state import InstanceState
 
 from sa2schema import AttributeType, sa2
-from sa2schema.to.pydantic import SALoadedModel
+from sa2schema.to.pydantic import SALoadedModel, SAGetterDict, SALoadedGetterDict
 
 from .models import User, Article, Number, EnumType
 from .models import JTI_Employee, JTI_Engineer
@@ -412,10 +413,6 @@ def test_sa_model_from_orm_instance():
     pd_NumberPartial = sa2.pydantic.sa_model(Number, make_optional=True)
     pdl_NumberPartial = sa2.pydantic.sa_model(Number, make_optional=True, Parent=SALoadedModel)
 
-    gd_original = create_model('').__config__.getter_dict
-    gd_sa = pd_Number.__config__.getter_dict
-    gd_sal = pdl_NumberPartial.__config__.getter_dict
-
 
 
     # === Test: Number(), has no database identity, all defaults
@@ -424,19 +421,19 @@ def test_sa_model_from_orm_instance():
     all_none = dict(id=None, n=None, nd1=None, nd2=None, nd3=None, d1=None, d2=None, d3=None)
 
     # Try GetterDicts
-    assert dict(gd_original(n)) == dict(
+    assert dict(GetterDict(n)) == dict(
         # Everything's None
         **all_none,
-        # Alien
+        # WARNING: this is an alien and should not be here at all
         metadata=Number.metadata,
     )
 
-    assert dict(gd_sa(n)) == dict(
+    assert dict(SAGetterDict(n)) == dict(
         **all_none,
         # metadata  # the alien is not reported
     )
 
-    assert dict(gd_sal(n)) == all_none
+    assert dict(SALoadedGetterDict(n)) == all_none
 
     # Try to extract
 
@@ -461,19 +458,19 @@ def test_sa_model_from_orm_instance():
     n = Number(**init_fields)
 
     # Try GetterDicts
-    assert dict(gd_original(n)) == dict(
+    assert dict(GetterDict(n)) == dict(
         id=None,  # the default is here
         **init_fields,  # same
-        metadata=Number.metadata  # WARNING: this is an alien that should not be here at all
+        metadata=Number.metadata  # Alien
     )
 
-    assert dict(gd_sa(n)) == dict(
+    assert dict(SAGetterDict(n)) == dict(
         id=None,
         **init_fields,
         #metadata  # the alien is not reported
     )
 
-    assert dict(gd_sal(n)) == dict(id=None, **init_fields)
+    assert dict(SALoadedGetterDict(n)) == dict(id=None, **init_fields)
 
     # Try to extract
 
