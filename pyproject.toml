@@ -7,8 +7,8 @@ repository = 'https://github.com/kolypto/py-sa2schema'
 
 [tool.poetry.dependencies]
 python = "^3.7"
-sqlalchemy = "^1.3.0"
-pydantic = {version = "^1.5", optional = true}
+sqlalchemy = "^1.3.5"
+pydantic = {version = "^1.5;!=1.6", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

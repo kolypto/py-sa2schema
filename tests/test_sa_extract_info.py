@@ -1,4 +1,6 @@
 from typing import List, Set, Dict, Any, Union
+
+from sa2schema.sa_extract_info import all_sqlalchemy_model_attribute_names
 from .models import *
 
 from sa2schema import sa_model_info, sa_attribute_info, AttributeType
@@ -10,6 +12,55 @@ from sa2schema.attribute_info import (
     RelationshipInfo, AssociationProxyInfo, DynamicLoaderInfo
 )
 
+
+def test_all_sqlalchemy_model_attribute_names():
+    """ Test all_sqlalchemy_model_attribute_names() """
+    assert all_sqlalchemy_model_attribute_names(User) == (
+        '_ignored',
+        'annotated_int',
+        'int',
+        'enum',
+        'optional',
+        'required',
+        'default',
+        'documented',
+        'json_attr',
+        'property_without_type',
+        'property_typed',
+        'property_documented',
+        'property_nullable',
+        'property_writable',
+        'hybrid_property_typed',
+        'hybrid_property_writable',
+        'hybrid_method_attr',
+        'expression',
+        'point',
+        'synonym',
+        'articles_list',
+        'articles_set',
+        'articles_dict_attr',
+        'articles_dict_keyfun',
+        'article_titles',
+        'articles_q',
+    )
+
+    assert all_sqlalchemy_model_attribute_names(Article) == (
+        'id',
+        'user_id',
+        'title',
+        'user',
+    )
+
+    assert all_sqlalchemy_model_attribute_names(Number) == (
+        'id',
+        'n',
+        'nd1',
+        'nd2',
+        'nd3',
+        'd1',
+        'd2',
+        'd3',
+    )
 
 
 def test_sa_model_info_extraction__User():

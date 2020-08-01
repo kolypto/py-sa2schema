@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from typing import Any, Dict, Type, Callable, List, Optional, ForwardRef
-from pydantic import BaseModel, ValidationError, create_model
+from typing import Any, Dict, Type, Callable, List, Optional, ForwardRef, Set
+from pydantic import BaseModel, ValidationError, VERSION as PYDANTIC_VERSION
 from pydantic.fields import SHAPE_LIST, ModelField
 from pydantic.utils import GetterDict
 from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
@@ -280,14 +280,43 @@ def test_sa_model_User_relationships():
 
     ns.update_forward_refs()  # got to do it
 
-
-    assert schema_attrs(pd_User) == {
-        # All references resolved
-        'articles_list': {'type': pd_Article, 'required': False, 'default': None},
-        'articles_set': {'type': pd_Article, 'required': False, 'default': None},
-        'articles_dict_attr': {'type': pd_Article, 'required': False, 'default': None},
-        'articles_dict_keyfun': {'type': pd_Article, 'required': False, 'default': None}
-    }
+    if PYDANTIC_VERSION == '1.5':
+        # 1.5: defaults with containers have Undefined
+        from pydantic.fields import Undefined
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'articles_list': {'type': pd_Article, 'required': False, 'default': Undefined},
+            'articles_set': {'type': pd_Article, 'required': False, 'default': Undefined},
+            'articles_dict_attr': {'type': pd_Article, 'required': False, 'default': Undefined},
+            'articles_dict_keyfun': {'type': pd_Article, 'required': False, 'default': Undefined}
+        }
+    elif PYDANTIC_VERSION == '1.5.1':
+        # 1.5.1: 'default' is set to the container type
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'articles_list': {'type': pd_Article, 'required': False, 'default': []},
+            'articles_set': {'type': pd_Article, 'required': False, 'default': set()},
+            'articles_dict_attr': {'type': pd_Article, 'required': False, 'default': {}},
+            'articles_dict_keyfun': {'type': pd_Article, 'required': False, 'default': {}}
+        }
+    elif PYDANTIC_VERSION == '1.6':
+        # 1.6: BUG: nested models aren't resolved
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'articles_list': {'type': List[ForwardRef('pd_Article')], 'required': False, 'default': None},
+            'articles_set': {'type': Set[ForwardRef('pd_Article')], 'required': False, 'default': None},
+            'articles_dict_attr': {'type': Dict[Any, ForwardRef('pd_Article')], 'required': False, 'default': None},
+            'articles_dict_keyfun': {'type': Dict[Any, ForwardRef('pd_Article')], 'required': False, 'default': None}
+        }
+    else:  # newer Pydantic
+        # Newer Pydantics have pure `type` and no wrapper
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'articles_list': {'type': pd_Article, 'required': False, 'default': None},
+            'articles_set': {'type': pd_Article, 'required': False, 'default': None},
+            'articles_dict_attr': {'type': pd_Article, 'required': False, 'default': None},
+            'articles_dict_keyfun': {'type': pd_Article, 'required': False, 'default': None}
+        }
 
     assert schema_attrs(pd_Article) == {
         # All references resolved
@@ -322,19 +351,60 @@ def test_sa_model_User_relationships():
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.DYNAMIC_LOADER, forwardref='pd_{model}', module=__name__)
     pd_User.update_forward_refs(**locals())  # manually
 
-    assert schema_attrs(pd_User) == {
-        # All references resolved
-        'articles_q': {'type': pd_Article, 'required': False, 'default': None},
-    }
+    if PYDANTIC_VERSION == '1.5':
+        # 1.5: defaults with containers have Undefined
+        from pydantic.fields import Undefined
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'articles_q': {'type': pd_Article, 'required': False, 'default': Undefined},
+        }
+    elif PYDANTIC_VERSION == '1.5.1':
+        # 1.5.1: 'default' is set to the container type
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'articles_q': {'type': pd_Article, 'required': False, 'default': []},
+        }
+    elif PYDANTIC_VERSION == '1.6':
+        # 1.6: BUG: nested models aren't resolved
+        assert schema_attrs(pd_User) == {
+            'articles_q': {'type': List[ForwardRef('pd_Article')], 'required': False, 'default': None},
+        }
+    else:
+        # Newer Pydantics has pure types
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'articles_q': {'type': pd_Article, 'required': False, 'default': None},
+        }
 
     # Test User: association proxy
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY, forwardref='pd_{model}', module=__name__)
     pd_User.update_forward_refs(**locals())  # manually
 
-    assert schema_attrs(pd_User) == {
-        # All references resolved
-        'article_titles': {'type': pd_Article, 'required': False, 'default': None},
-    }
+    if PYDANTIC_VERSION == '1.5':
+        # 1.5: defaults with containers have Undefined
+        from pydantic.fields import Undefined
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'article_titles': {'type': pd_Article, 'required': False, 'default': Undefined},
+        }
+    elif PYDANTIC_VERSION == '1.5.1':
+        # 1.5.1: 'default' is set to the container type
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'article_titles': {'type': pd_Article, 'required': False, 'default': {}},
+        }
+    elif PYDANTIC_VERSION == '1.6':
+        # 1.6: BUG: nested models aren't resolved
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'article_titles': {'type': Dict[str, ForwardRef('pd_Article')], 'required': False, 'default': None},
+        }
+    else:
+        # Newer Pydantics has pure types
+        assert schema_attrs(pd_User) == {
+            # All references resolved
+            'article_titles': {'type': pd_Article, 'required': False, 'default': None},
+        }
 
 
 def test_sa_model_User_composite():

@@ -23,8 +23,10 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
 @nox.parametrize(
     'pydantic',
     [
-        '1.5', '1.5.1',
-        '1.6', '1.6.1',
+        '1.5',
+        '1.5.1',
+        #'1.6', # has a bug
+        '1.6.1',
     ]
 )
 def tests_pydantic(session, pydantic):
@@ -36,7 +38,7 @@ def tests_pydantic(session, pydantic):
 @nox.parametrize(
     'sqlalchemy',
     [
-        *(f'1.3.{x}' for x in range(0, 1+18)),
+        *(f'1.3.{x}' for x in range(5, 1+18)),
     ]
 )
 def tests_sqlalchemy(session, sqlalchemy):
