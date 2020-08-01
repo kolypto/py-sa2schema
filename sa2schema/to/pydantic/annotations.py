@@ -12,7 +12,7 @@ from sa2schema.sa_extract_info import SAAttributeType
 SAModelT = TypeVar('SAModelT', bound=DeclarativeMeta)
 
 
-# Model class
+# Pydantic Model class
 ModelT = TypeVar('ModelT', bound=Type[BaseModel])
 
 

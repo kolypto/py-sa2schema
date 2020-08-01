@@ -700,11 +700,21 @@ def test_plain_recursion():
     xUser.update_forward_refs(xArticle=xArticle)
     xArticle.update_forward_refs(xUser=xUser)
 
+    # === Test 1. Recursive models parsed
+    article_dict = dict(id=1)
+    user_dict = dict(id=1, articles=[article_dict])
+    article_dict['author'] = user_dict
+
+    with pytest.raises(RecursionError):
+        # It also falls into
+        user = xUser(**user_dict)
+
+    # === Test 2. Recursive models linked
     # Link two models
     article = xArticle(id=1)
     user = xUser(id=1, articles=[article])
 
-    assert user.dict() == dict(
+    assert user.dict() == dict(  # no problem yet
         id=1,
         articles=[{'author': None, 'id': 1}]
     )
@@ -723,6 +733,7 @@ def test_plain_recursion():
         user.dict()
 
 
+
 def test_User_from_orm_instance_with_relationships():
     """ Use sa_model().from_orm() with relationships """
     user_exclude = lambda name, attr: name not in ('articles_list',)
@@ -733,10 +744,7 @@ def test_User_from_orm_instance_with_relationships():
     pd_User = pd_models.sa_model(User, exclude=user_exclude)
     pd_Article = pd_models.sa_model(Article,
                                     types=AttributeType.COLUMN,  # also include columns
-                                    # Got to exclude fields that lead to cyclic dependencies.
-                                    # Pydantic can't handle that.
-                                    # TODO: (tag: pydantic-recursive) fix this behavior with SqlAlchemy converter; perhaps, with a GetterDict
-                                    exclude=('user',))
+                                    )
     pd_models.update_forward_refs()
 
     # Empty user
@@ -752,7 +760,7 @@ def test_User_from_orm_instance_with_relationships():
     article = Article(id=1, title='a')
 
     pd_article = pd_Article.from_orm(article)
-    assert pd_article.dict() == dict(id=1, title='a', user_id=None)
+    assert pd_article.dict() == dict(id=1, title='a', user=None, user_id=None)
 
     # User with articles
     user = User(articles_list=[article])  # NOTE: SqlAlchemy has already provided a bi-directional link
@@ -760,7 +768,12 @@ def test_User_from_orm_instance_with_relationships():
     pd_user = pd_User.from_orm(user)
     assert pd_user.dict() == dict(
         articles_list=[
-            dict(id=1, title='a', user_id=None),  # can't have any `user`; otherwise, RecursionError
+            dict(
+                id=1,
+                title='a',
+                user=None,  # NOTE: replaced with `None` to avoid RecursionError ;)
+                user_id=None
+            ),
         ],
     )
 
@@ -768,9 +781,7 @@ def test_User_from_orm_instance_with_relationships():
     pd_models_partial = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
                                             forwardref='pd_{model}Partial', make_optional=True)
     pd_UserPartial = pd_models_partial.sa_model(User, exclude=user_exclude)
-    pd_ArticlePartial = pd_models_partial.sa_model(Article,
-                                                   # TODO: (tag: pydantic-recursive)
-                                                   exclude=('user',))
+    pd_ArticlePartial = pd_models_partial.sa_model(Article)
     pd_models_partial.update_forward_refs()
 
     # User with articles
@@ -780,7 +791,9 @@ def test_User_from_orm_instance_with_relationships():
     pd_user = pd_UserPartial.from_orm(user)
     assert pd_user.dict() == dict(
         articles_list=[
-            {}  # pd_ArticlePartial only has types=relationships :) so nothing's left of it
+            dict(
+                user=None,  # NOTE: replaced with `None` to avoid RecursionError ;)
+            )
         ],
     )
 
@@ -790,9 +803,7 @@ def test_User_from_orm_instance_with_relationships():
                                              forwardref='pdl_{model}Partial', make_optional=True,
                                              Base=SALoadedModel)
     pdl_UserPartial = pdl_models_partial.sa_model(User, exclude=user_exclude)
-    pdl_ArticlePartial = pdl_models_partial.sa_model(Article,
-                                                    # TODO: (tag: pydantic-recursive)
-                                                    exclude=('user',))
+    pdl_ArticlePartial = pdl_models_partial.sa_model(Article)
     pdl_models_partial.update_forward_refs()
 
     # Make a User with unloaded relationships
@@ -832,8 +843,7 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     pd_UserPartial = g.sa_model(User)
     pd_ArticlePartial = g.sa_model(Article,
                                    types=AttributeType.COLUMN,
-                                   # TODO: (tag: pydantic-recursive)
-                                   exclude=('user',))
+                                   )
     g.update_forward_refs()
 
 
@@ -841,7 +851,10 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     article = Article()  # no attributes set
     pd_article = pd_ArticlePartial.from_orm(article)
     assert pd_article.dict() == dict(
-        id=None, title=None, user_id=None,  # all None
+        id=None,
+        title=None,
+        user_id=None,  # all None
+        user=None,  # not set
     )
 
     article = Article(id=1, title='1')  # some attributes set
@@ -849,6 +862,7 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     assert pd_article.dict() == dict(
         id=1, title='1',
         user_id=None,  # gets a `None`
+        user=None,  # not set
     )
 
     # === Test: Columns: load a full Article
@@ -856,7 +870,42 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
 
     pd_article = pd_ArticlePartial.from_orm(article)
     assert pd_article.dict() == dict(
-        id=1, title='1', user_id='1',
+        id=1,
+        title='1',
+        user_id='1',
+        user=None,  # not loaded
+    )
+
+    # === Test: Columns: load a full Article + Article.user
+    article = ssn.query(Article).options(joinedload(Article.user)).first()
+
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=1,
+        title='1',
+        user_id='1',
+        user=dict(
+            articles_list=None,  # not loaded
+            articles_set=None,  # not loaded
+            articles_dict_attr=None,  # not loaded
+            articles_dict_keyfun=None,  # not loaded
+        ),
+    )
+
+    # === Test: Columns: load a full Article + Article.user + Article.user.articles_list
+    article = ssn.query(Article).options(joinedload(Article.user).joinedload(User.articles_list)).first()
+
+    pd_article = pd_ArticlePartial.from_orm(article)
+    assert pd_article.dict() == dict(
+        id=1,
+        title='1',
+        user_id='1',
+        user=dict(
+            articles_list=[None],  # loaded, but replaced with `None` due to recursion (!)
+            articles_set=None,  # not loaded
+            articles_dict_attr=None,  # not loaded
+            articles_dict_keyfun=None,  # not loaded
+        ),
     )
 
     # === Test: Columns: load a deferred Article
@@ -868,6 +917,7 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
         id=1,
         title=None,  # not loaded
         user_id=None,  # not loaded
+        user=None,  # not loaded
     )
 
     # === Test: Columns: expired Article
@@ -876,14 +926,14 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
 
     pd_article = pd_ArticlePartial.from_orm(article)
     assert pd_article.dict() == dict(
-        id=None, title=None, user_id=None,  # all expired
+        id=None, title=None, user_id=None, user=None,  # all expired
     )
 
     # === Test: Relationships: dummy User
     user = User()  # empty
     pd_user = pd_UserPartial.from_orm(user)
     assert pd_user.dict() == dict(
-        articles_list=None,
+        articles_list=None,  # not loaded
         articles_set=None,
         articles_dict_attr=None,
         articles_dict_keyfun=None,
@@ -892,7 +942,9 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     user = User(articles_list=[Article(title='')])  # with some articles
     pd_user = pd_UserPartial.from_orm(user)
     assert pd_user.dict() == dict(
-        articles_list=[{'id': None, 'title': '', 'user_id': None}],
+        articles_list=[{'id': None, 'title': '', 'user_id': None,
+                        'user': None,  # NOTE: replaced with `None` to avoid RecursionError ;)
+                        }],
         articles_set=None,
         articles_dict_attr=None,
         articles_dict_keyfun=None,
@@ -901,7 +953,7 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     # === Test: Relationships: load a deferred User
     user = ssn.query(User).first()
     assert pd_UserPartial.from_orm(user).dict() == dict(
-        articles_list=None,  # unloaded relationship not included
+        articles_list=None,  # not loaded
         articles_set=None,
         articles_dict_attr=None,
         articles_dict_keyfun=None,
@@ -912,7 +964,9 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     assert pd_UserPartial.from_orm(user).dict() == dict(
         articles_list=[
             # Now included because loaded! Yay!
-            {'id': 1, 'title': '1', 'user_id': '1'}
+            {'id': 1, 'title': '1', 'user_id': '1',
+             'user': None,  # NOTE: replaced with `None` to avoid RecursionError ;)
+             }
         ],
         articles_set=None,
         articles_dict_attr=None,
@@ -939,6 +993,12 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     pd_article = pd_ArticlePartial.from_orm(article)
     assert pd_article.dict() == dict(
         id=1, title='1', user_id='1',  # still available
+        user={  # loaded by cascade loader when deleting
+            'articles_list': None,
+            'articles_set': None,
+            'articles_dict_attr': None,
+            'articles_dict_keyfun': None,
+        }
     )
 
     ssn.rollback()  # bring the article back
@@ -956,14 +1016,16 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
         # Unbelievable. All relationships are loaded on delete() :)
         # This is because SqlAlchemy was getting ready for active CASCADE
         articles_list=[
-            {'id': 1, 'title': '1', 'user_id': None},
+            {'id': 1, 'title': '1', 'user_id': None,
+             'user': None,  # NOTE: replaced with `None` to avoid RecursionError ;)
+             },
         ],
         articles_set=None,  # not loaded for some reason
         articles_dict_attr={
-            1: {'id': 1, 'title': '1', 'user_id': None},
+            1: {'id': 1, 'title': '1', 'user_id': None, 'user': None},
         },
         articles_dict_keyfun={
-            1001: {'id': 1, 'title': '1', 'user_id': None},
+            1001: {'id': 1, 'title': '1', 'user_id': None, 'user': None},
         },
     )
 

@@ -1,17 +1,20 @@
 """ Implementations of Pydantic BaseModel: for all models that depend on SqlAlchemy """
-
 from typing import Type
 
 from pydantic import BaseModel, BaseConfig, Extra
 from pydantic.utils import GetterDict
 
 from .getter_dict import SAGetterDict, SALoadedGetterDict
+from .base_model_recursion import NoneRecursiveParserMixin
 
 
-class SAModel(BaseModel):
+class SAModel(NoneRecursiveParserMixin, BaseModel):
     """ Base for SqlAlchemy models.
 
     This model will brutely load all unloaded attributes, even if that triggers hundreds of additional SQL queries.
+
+    When encountering recursive relationships, it will replace their recursive values with `None`. Make sure your schema is ready for that.
+    Use it with `make_optional`; that's the best thing.
     """
 
     class Config(BaseConfig):
