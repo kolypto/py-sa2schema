@@ -1,216 +1,24 @@
-""" SA-Pydantic bridge between SqlAlchemy and Pydantic """
+""" sa_model() implementation: converts from SqlAlchemy model to Pydantic model """
 
-from functools import partial
-from typing import TypeVar, Tuple, Dict, Union, Callable, Type, ForwardRef, Optional, Iterable, Iterator, Any, Set
+
+from typing import Tuple, Dict, Callable, Type, ForwardRef, Optional, Iterable
+
+from pydantic import BaseModel, create_model, Field, Required
 from pydantic.fields import Undefined
-from pydantic import BaseModel, BaseConfig, create_model, Field, Required, Extra
-from pydantic.utils import GetterDict
 from sqlalchemy import inspect
 from sqlalchemy.ext.declarative import DeclarativeMeta
-from sqlalchemy.orm.base import instance_state
-from sqlalchemy.orm.state import InstanceState
 
 from sa2schema import AttributeType, sa_model_info
-from sa2schema.sa_extract_info import all_sqlalchemy_model_attribute_names
-from sa2schema.sa_extract_info import ExcludeFilterT, SAAttributeType, _ColumnsOrColumnNames
-from sa2schema.attribute_info import NOT_PROVIDED
 from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
-from sa2schema.attribute_info import Literal  # compatibility is there
+from sa2schema.attribute_info import NOT_PROVIDED
+from sa2schema.sa_extract_info import ExcludeFilterT, _ColumnsOrColumnNames
 
-
-# TODO: remake into a `pydantic` model, split into files
-
-
-class SAGetterDict(GetterDict):
-    """ Adapter that extracts data from SqlAlchemy models
-
-    It knows all the attributes and properties
-    """
-
-    # re-implement every method that refers to self._obj
-
-    def __iter__(self) -> Iterator[str]:
-        # Get the list of attribute names from the model itself, not from the object
-        # Why? because otherwise we will miss @property attributes, and they just might be useful
-        return iter(all_sqlalchemy_model_attribute_names(type(self._obj)))
-
-    # other methods (get(), __getitem__()) are fine
-
-
-class SALoadedGetterDict(SAGetterDict):
-    """ Adapter that extracts only the loaded data from SqlAlchemy models
-
-    The advantage of this GetterDict is that it will never trigger loading of any SqlAlchemy
-    attributes that aren't loaded.
-
-    Be careful, though: if a field isn't loaded, this getter will return a None,
-    which might not always make sense to your application.
-    """
-    __slots__ = ('_unloaded',)
-
-    #: const: the value to return for unloaded attributes
-    #: Note that the very same value will be used for collections as well.
-    #: NOTE: set it to `pydantic.main._missing` and Pydantic will return Field defaults instead.
-    #: see: validate_model()
-    EMPTY_VALUE = None
-
-    #: Cached set of unloaded attributes.
-    #: We cache it because it's not supposed to be modified while we're iterating the model
-    _unloaded: Set[str]
-
-    def __init__(self, obj: Any):
-        super().__init__(obj)
-
-        # Make a list of attributes the loading of which would lead to an unwanted DB query
-        state: InstanceState = instance_state(self._obj)
-        self._unloaded = state.unloaded
-
-    # Methods that only return attributes that are loaded; nothing more
-
-    def __getitem__(self, key: str) -> Any:
-        if key in self._unloaded:
-            return self.EMPTY_VALUE
-        else:
-            return super().__getitem__(key)
-
-    def get(self, key: Any, default: Any = None) -> Any:
-        if key in self._unloaded:
-            return self.EMPTY_VALUE
-        else:
-            return super().get(key, default)
-
-
-class SAModel(BaseModel):
-    """ Base for SqlAlchemy models """
-
-    class Config(BaseConfig):
-        # Enabling orm_mode makes Pydantic pick attributes of objects when necessary
-        orm_mode = True
-
-        # Custom GetterDict
-        getter_dict: Type[GetterDict] = SAGetterDict
-
-        # Forbid extra attributes
-        extra = Extra.forbid
-
-
-class SALoadedModel(SAModel):
-    """ Base for SqlAlchemy models that will only return attributes that are already loaded """
-
-    class Config(SAModel.Config):
-        # GetterDict that won't trigger the loading of any attributes
-        getter_dict = SALoadedGetterDict
-
-
-# SqlAlchemyModel
-SAModelT = TypeVar('SAModelT', bound=DeclarativeMeta)
-
-
-# Model class
-ModelT = TypeVar('ModelT', bound=Type[BaseModel])
-
-
-# A callable to choose fields for making them Optional[]
-# Returns `True` to make the field optional, `False` to leave it as it is
-MakeOptionalFilterFunction = Callable[[str, SAAttributeType], bool]
-
-
-# A filter to choose which fields to make Optional[]:
-# a function, or a set of field names, or `True` to make all of them optional
-MakeOptionalFilterT = Union[bool, Iterable[str], MakeOptionalFilterFunction]
-
-
-# A forward reference generator function(Model)->str
-# Returns the name for the forward reference
-ForwardRefGeneratorFunction = Callable[[DeclarativeMeta], str]
-
-
-# Forward reference pattern: a template '{model}Db', or a callable
-ForwardRefGeneratorT = Union[str, Literal[id], ForwardRefGeneratorFunction]
+from .base_model import SAModel
+from .annotations import ModelT, SAModelT, MakeOptionalFilterT, MakeOptionalFilterFunction, ForwardRefGeneratorT, ForwardRefGeneratorFunction
 
 
 # Make all fields optional except the primary key
 ALL_BUT_PRIMARY_KEY = object()
-
-
-class Group:
-    """ A group of models related to one another.
-
-    For instance, a group of DB models, a group of input models, a group of output models.
-
-    A Group() is nothing mode than a partial(sa_model) that feeds the same `module` and `forwardref`.
-    This way, every model will have a common forward-reference pattern and be able to find one another.
-
-    In addition to that, it remembers every model in its `.namespace` attribute,
-    through which these forward references are resolved.
-    """
-
-    def __init__(self,
-                 module: str,
-                 forwardref: ForwardRefGeneratorT,
-                 *,
-                 types: AttributeType = AttributeType.COLUMN,
-                 Base: Type[ModelT] = SAModel,
-                 make_optional: MakeOptionalFilterT = False,
-                 only_readable: bool = False,
-                 only_writable: bool = False,
-                 ):
-        """ Create a new group of models, all sharing a common naming pattern, and other attributes
-
-        Args:
-            module: The __name__ of the defining module
-            forwardref: a '{model}Input' pattern, or a callable(Model)->ForwardRef
-            types: attribute types to include. See AttributeType
-            Base: base Pydantic model to use. Can also use it to provide Config class
-            make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
-                            or a function(name, attribute) to select specific optional fields
-                            Special case: `ALL_BUT_PRIMARY_KEY` will make all fields optional except for the primary key
-            only_readable: only include fields that are readable. Useful for output models.
-            only_writable: only include fields that are writable. Useful for input models.
-        """
-        # sa_model() as a partial
-        self._sa_model = partial(
-            sa_model,
-            module=module,
-            make_optional=make_optional,
-            only_readable=only_readable,
-            only_writable=only_writable,
-            forwardref=forwardref
-        )
-
-        self._base = Base
-        self._types = types
-
-        # remember these models
-        self.namespace = {}
-
-    def sa_model(self,
-                 Model: Type[SAModelT],
-                 Parent: Optional[Type[ModelT]] = None,
-                 *,
-                 types: AttributeType = AttributeType.NONE,
-                 exclude: ExcludeFilterT = (),
-                 ) -> Type[BaseModel]:
-        """ Add a model to the group
-
-        Args:
-            Model: the SqlAlchemy model to convert
-            Parent: parent Pydantic model to use for for proper inheritance set up.
-                Note that sa_model() won't detect inheritance automatically; you've got to do it yourself!!
-            types: more types to add
-            exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
-        """
-        model = self._sa_model(Model,
-                               Parent=Parent or self._base,
-                               types=self._types | types,
-                               exclude=exclude)
-        self.namespace[model.__name__] = model
-        return model
-
-    def update_forward_refs(self):
-        """ Update forward references so that models point to one another """
-        for model in self.namespace.values():
-            model.update_forward_refs(**self.namespace)
 
 
 def sa_model(Model: Type[SAModelT],
