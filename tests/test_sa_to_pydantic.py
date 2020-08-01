@@ -272,13 +272,13 @@ def test_sa_model_User_relationships():
     # the difficult thing is that in a relationship, create_model()
     # has to refer to other models that have not been created yet.
 
-    group = sa2.pydantic.Group(__name__, 'pd_{model}', types=AttributeType.RELATIONSHIP)
+    ns = sa2.pydantic.Models(__name__, 'pd_{model}', types=AttributeType.RELATIONSHIP)
 
     # Test User: relationships
-    pd_User = group.sa_model(User)
-    pd_Article = group.sa_model(Article)
+    pd_User = ns.sa_model(User)
+    pd_Article = ns.sa_model(Article)
 
-    group.update_forward_refs()  # got to do it
+    ns.update_forward_refs()  # got to do it
 
 
     assert schema_attrs(pd_User) == {
@@ -658,8 +658,8 @@ def test_User_from_orm_instance_with_relationships():
     user_exclude = lambda name, attr: name not in ('articles_list',)
 
     # === Test: Models
-    pd_models = sa2.pydantic.Group(__name__, types=AttributeType.RELATIONSHIP,
-                                   forwardref='pd_{model}')
+    pd_models = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
+                                    forwardref='pd_{model}')
     pd_User = pd_models.sa_model(User, exclude=user_exclude)
     pd_Article = pd_models.sa_model(Article,
                                     types=AttributeType.COLUMN,  # also include columns
@@ -695,8 +695,8 @@ def test_User_from_orm_instance_with_relationships():
     )
 
     # === Test: Partial models
-    pd_models_partial = sa2.pydantic.Group(__name__, types=AttributeType.RELATIONSHIP,
-                                           forwardref='pd_{model}Partial', make_optional=True)
+    pd_models_partial = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
+                                            forwardref='pd_{model}Partial', make_optional=True)
     pd_UserPartial = pd_models_partial.sa_model(User, exclude=user_exclude)
     pd_ArticlePartial = pd_models_partial.sa_model(Article,
                                                    # TODO: (tag: pydantic-recursive)
@@ -716,9 +716,9 @@ def test_User_from_orm_instance_with_relationships():
 
 
     # === Test: Partial models, only loaded
-    pdl_models_partial = sa2.pydantic.Group(__name__, types=AttributeType.RELATIONSHIP,
-                                            forwardref='pdl_{model}Partial', make_optional=True,
-                                            Base=SALoadedModel)
+    pdl_models_partial = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
+                                             forwardref='pdl_{model}Partial', make_optional=True,
+                                             Base=SALoadedModel)
     pdl_UserPartial = pdl_models_partial.sa_model(User, exclude=user_exclude)
     pdl_ArticlePartial = pdl_models_partial.sa_model(Article,
                                                     # TODO: (tag: pydantic-recursive)
@@ -754,10 +754,10 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     # Prepare Pydantic models
     # We'll be using partial, only-loaded, models
     # We're interested in relationships (User) and columns (Article)
-    g = sa2.pydantic.Group(__name__,
-                           types=AttributeType.RELATIONSHIP,
-                           forwardref='pd_{model}Partial',
-                           make_optional=True, Base=SALoadedModel)
+    g = sa2.pydantic.Models(__name__,
+                            types=AttributeType.RELATIONSHIP,
+                            forwardref='pd_{model}Partial',
+                            make_optional=True, Base=SALoadedModel)
 
     pd_UserPartial = g.sa_model(User)
     pd_ArticlePartial = g.sa_model(Article,

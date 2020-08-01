@@ -1,4 +1,4 @@
-""" Group: container for models that can relate to one another """
+""" Models: container for models that can relate to one another """
 
 
 from functools import partial
@@ -14,21 +14,30 @@ from .base_model import SAModel
 from .sa_model import sa_model
 
 
-class Group:
-    """ A group of models related to one another.
+class Models:
+    """ A container for models that can relate to one another.
 
     For instance, a group of DB models, a group of input models, a group of output models.
 
-    A Group() is nothing mode than a partial(sa_model) that feeds the same `module` and `forwardref`.
+    A Namespace() is nothing mode than a partial(sa_model) that feeds the same `module` and `forwardref`.
     This way, every model will have a common forward-reference pattern and be able to find one another.
 
     In addition to that, it remembers every model in its `.namespace` attribute,
     through which these forward references are resolved.
+
+    Example:
+        >>> # schemas.py
+        >>> from sa2schema import sa2
+        >>> from app.db import models  # SqlAlchemy models of your app
+        >>> ns = sa2.pydantic.Models(__name__, '{model}', types=AttributeType.RELATIONSHIP)
+        >>> User = ns.sa_model(models.User)
+        >>> Article = ns.sa_model(models.Article)
+        >>> ns.update_forward_refs()  # got to do it
     """
 
     def __init__(self,
                  module: str,
-                 forwardref: ForwardRefGeneratorT,
+                 forwardref: ForwardRefGeneratorT = '{model}',
                  *,
                  types: AttributeType = AttributeType.COLUMN,
                  Base: Type[ModelT] = SAModel,
@@ -72,7 +81,7 @@ class Group:
                  types: AttributeType = AttributeType.NONE,
                  exclude: ExcludeFilterT = (),
                  ) -> Type[BaseModel]:
-        """ Add a model to the group
+        """ Add a model to the namespace
 
         Args:
             Model: the SqlAlchemy model to convert

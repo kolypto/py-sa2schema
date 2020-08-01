@@ -5,7 +5,7 @@
 from .sa_model import sa_model, ALL_BUT_PRIMARY_KEY
 
 # Namespace for models that can relate to one another
-from .group import Group
+from .models import Models
 
 # Base models for Pydantic-SqlAlchemy models
 from .base_model import SAModel, SALoadedModel
