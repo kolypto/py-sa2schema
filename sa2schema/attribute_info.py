@@ -20,7 +20,8 @@ from copy import copy
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import get_type_hints, ForwardRef, Tuple
-from typing import Any, Optional, Union, Callable, Iterable, TypeVar, Type, List, Set, Dict, Generic
+from typing import Any, Optional, Union, Callable, Iterable, TypeVar, Type, List, Set, Dict
+from .compat import Literal, get_args, get_origin
 
 from pydantic.utils import lenient_issubclass
 from sqlalchemy import Column, ColumnDefault
@@ -38,14 +39,6 @@ from sqlalchemy.util import symbol
 
 from .defs import AttributeType
 
-# Python >= 3.8
-try:
-    from typing import Literal, get_args, get_origin
-# Compatibility
-except ImportError:
-    Literal = lambda x: x
-    get_args = lambda t: getattr(t, '__args__', ()) if t is not Generic else Generic
-    get_origin = lambda t: getattr(t, '__origin__', None)
 
 # Value not provided (e.g. `default` value)
 NOT_PROVIDED = symbol('NOT_PROVIDED')

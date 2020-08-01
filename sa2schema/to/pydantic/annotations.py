@@ -5,7 +5,7 @@ from typing import TypeVar, Union, Callable, Type, Iterable
 from pydantic import BaseModel
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
-from sa2schema.attribute_info import Literal  # compatibility is there
+from sa2schema.compat import Literal
 from sa2schema.sa_extract_info import SAAttributeType
 
 # SqlAlchemyModel
@@ -32,4 +32,4 @@ ForwardRefGeneratorFunction = Callable[[DeclarativeMeta], str]
 
 
 # Forward reference pattern: a template '{model}Db', or a callable
-ForwardRefGeneratorT = Union[str, Literal[id], ForwardRefGeneratorFunction]
+ForwardRefGeneratorT = Union[str, ForwardRefGeneratorFunction]
