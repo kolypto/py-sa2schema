@@ -18,8 +18,8 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ./.nox/  # what we cache: nox virtualenv (they're expensive)
-        key: ${{ runner.os }}-nox-1-${{ hashFiles('**/pyproject.toml', '**/noxfile.py') }}  # cache key
+        key: ${{ runner.os }}-nox-2-${{ hashFiles('**/pyproject.toml', '**/noxfile.py') }}  # cache key
         restore-keys: |
-          ${{ runner.os }}-nox-1-
+          ${{ runner.os }}-nox-2-
     - run: pip install poetry nox
     - run: nox -r
