@@ -14,7 +14,7 @@ from sa2schema.attribute_info import NOT_PROVIDED
 from sa2schema.sa_extract_info import ExcludeFilterT, _ColumnsOrColumnNames
 
 from .base_model import SAModel
-from .annotations import ModelT, SAModelT, MakeOptionalFilterT, MakeOptionalFilterFunction, ForwardRefGeneratorT, ForwardRefGeneratorFunction
+from .annotations import ModelT, SAModelT, MakeOptionalFilterT, MakeOptionalFilterFunction, ModelNameMakerT, ModelNameMakerFunction
 
 
 # Make all fields optional except the primary key
@@ -30,7 +30,7 @@ def sa_model(Model: Type[SAModelT],
              only_readable: bool = False,
              only_writable: bool = False,
              exclude: ExcludeFilterT = (),
-             forwardref: Optional[ForwardRefGeneratorT] = None
+             naming: Optional[ModelNameMakerT] = None
              ) -> Type[BaseModel]:
     """ Create a Pydantic model from an SqlAlchemy model
 
@@ -57,7 +57,7 @@ def sa_model(Model: Type[SAModelT],
         only_readable: only include fields that are readable. Useful for output models.
         only_writable: only include fields that are writable. Useful for input models.
         exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
-        forwardref: pattern for forward references to models. Can be:
+        naming: naming pattern for models. Used to resolve forward references. One of:
             A string: something like '{model}Db', '{model}Input', '{model}Response'
             A callable(Model) to generate custom ForwardRef objects
             Note that if nothing's provided, you can't use relationships. How would they otherwise find each other?
@@ -66,31 +66,31 @@ def sa_model(Model: Type[SAModelT],
     """
     # prerequisites for handling relationships
     if types & (AttributeType.RELATIONSHIP | AttributeType.DYNAMIC_LOADER | AttributeType.ASSOCIATION_PROXY):
-        if forwardref is None:
-            raise ValueError("When using relationships, you need to provide a `forwardref`")
-            # a `forwardref` function is absolutely essential.
+        if naming is None:
+            raise ValueError("When using relationships, you need to provide a `naming`")
+            # a `naming` function is absolutely essential.
             # Otherwise, how related classes will find each other?
         if not module:
             raise ValueError("When using relationships, you need to provide a `module`")
             # If you don't, __module__ won't be set on classes, and you will get really nasty errors,
             # like `KeyError(None)` on a line of code that doesn't do anything
 
-    # forwardref
-    forwardref = _prepare_forwardref_function(forwardref)
+    # naming
+    naming = _prepare_naming_function(naming)
 
     # make_optional
     make_optional = _prepare_make_optional_function(make_optional, Model)
 
     # Create the model
     pd_model = create_model(
-        __model_name=generate_model_name(Model, forwardref),
+        __model_name=generate_model_name(Model, naming),
         __module__=module,
         __base__=Parent,
         **sa_model_fields(Model, types=types,
                           exclude=exclude, make_optional=make_optional,
                           only_readable=only_readable,
                           only_writable=only_writable,
-                          forwardref=forwardref
+                          naming=naming
                           )
     )
     pd_model.__doc__ = Model.__doc__
@@ -104,7 +104,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
                     only_writable: bool = False,
                     exclude: ExcludeFilterT = (),
                     can_omit_nullable: bool = True,
-                    forwardref: Optional[ForwardRefGeneratorFunction],
+                    naming: Optional[ModelNameMakerFunction],
                     ) -> Dict[str, Tuple[type, Field]]:
     """ Take an SqlAlchemy model and generate pydantic Field()s from it
 
@@ -120,8 +120,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
         only_writable: only include fields that are writable
         exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
         can_omit_nullable: `False` to make nullable fields and fields with defaults required.
-        forwardref: optionally, a callable(Model) able to generate a forward reference.
-            This is required for resolving relationship targets.
+        naming: optionally, a callable(Model) naming pattern generator. This is required for resolving relationship targets.
             If relationships aren't used, provide some exception thrower.
             If None, no relationship will be replaced with a forward reference.
     Returns:
@@ -134,7 +133,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
     return {
         name: (
             # Field type
-            pydantic_field_type(name, info, model_annotations, make_optional(name, info.attribute), forwardref),
+            pydantic_field_type(name, info, model_annotations, make_optional(name, info.attribute), naming),
             # Field() object
             make_field(info, can_omit_nullable=can_omit_nullable),
         )
@@ -168,10 +167,10 @@ def make_field(attr_info: AttributeInfo,
     )
 
 
-def generate_model_name(Model: DeclarativeMeta, forwardref: Optional[ForwardRefGeneratorFunction]) -> str:
+def generate_model_name(Model: DeclarativeMeta, naming: Optional[ModelNameMakerFunction]) -> str:
     """ Generate a name for the model """
-    if forwardref:
-        return forwardref(Model)
+    if naming:
+        return naming(Model)
     else:
         return Model.__name__
 
@@ -180,13 +179,13 @@ def pydantic_field_type(attr_name: str,
                         attr_info: AttributeInfo,
                         model_annotations: Dict[str, type],
                         make_optional: bool,
-                        forwardref: Optional[ForwardRefGeneratorT],
+                        naming: Optional[ModelNameMakerT],
                         ) -> type:
     """ Choose a field type for pydantic """
-    # For relationships, we use the forwardref() generator to replace it with a forward reference
-    if isinstance(attr_info, (RelationshipInfo, AssociationProxyInfo)) and forwardref:
+    # For relationships, we use the naming() generator to generate a name, make a ForwardRref, and replace the model
+    if isinstance(attr_info, (RelationshipInfo, AssociationProxyInfo)) and naming:
         attr_info = attr_info.replace_model(
-            ForwardRef(forwardref(attr_info.target_model))
+            ForwardRef(naming(attr_info.target_model))
         )
     # For composites, we replace them by name, straight.
     if isinstance(attr_info, CompositeInfo):
@@ -205,27 +204,26 @@ def pydantic_field_type(attr_name: str,
     return type_
 
 
-def _prepare_forwardref_function(forwardref: Optional[ForwardRefGeneratorT]) -> Optional[ForwardRefGeneratorFunction]:
-    """ Given the `forwardref` argument, convert it into a guaranteed Optional[callable]
+def _prepare_naming_function(naming: Optional[ModelNameMakerT]) -> Optional[ModelNameMakerFunction]:
+    """ Given the `naming` argument, convert it into a guaranteed Optional[callable]
 
     If the argument is a function, leave it as it is.
-    If the argument is a string, treat it like '{model}Input' pattern, and get a ForwardRef from it.
+    If the argument is a string, treat it like '{model}Input' pattern, and make a ForwardRef from it.
     Otherwise, do nothing: return as it is.
     """
     # If a string is given, it's a pattern
-    if isinstance(forwardref, str):
-        forwardref_str = forwardref
-        assert '{model' in forwardref_str, 'The `forwardref` string must contain a reference to {model}'
-        return lambda model: forwardref_str.format(model=model.__name__)
+    if isinstance(naming, str):
+        assert '{model' in naming, 'The `naming` string must contain a reference to {model}'
+        return lambda model: naming.format(model=model.__name__)
     # `None` is acceptable
-    elif forwardref is None:
-        return forwardref
+    elif naming is None:
+        return naming
     # Callable is ok
-    elif isinstance(forwardref, Callable):
-        return forwardref
+    elif isinstance(naming, Callable):
+        return naming
     # Complain
     else:
-        raise ValueError(forwardref)
+        raise ValueError(naming)
 
 
 def _prepare_make_optional_function(make_optional: MakeOptionalFilterT, Model: ModelT) -> MakeOptionalFilterFunction:

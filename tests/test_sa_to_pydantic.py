@@ -348,7 +348,7 @@ def test_sa_model_User_relationships():
     article = pd_Article(user=user)
 
     # Test User: dynamic loader
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.DYNAMIC_LOADER, forwardref='pd_{model}', module=__name__)
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.DYNAMIC_LOADER, naming='pd_{model}', module=__name__)
     pd_User.update_forward_refs(**locals())  # manually
 
     if PYDANTIC_VERSION == '1.5':
@@ -377,7 +377,7 @@ def test_sa_model_User_relationships():
         }
 
     # Test User: association proxy
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY, forwardref='pd_{model}', module=__name__)
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY, naming='pd_{model}', module=__name__)
     pd_User.update_forward_refs(**locals())  # manually
 
     if PYDANTIC_VERSION == '1.5':
@@ -741,7 +741,7 @@ def test_User_from_orm_instance_with_relationships():
     # === Test: Models
     # make the namespace
     pd_models = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
-                                    forwardref='pd_{model}')
+                                    naming='pd_{model}')
     pd_User = pd_models.sa_model(User, exclude=user_exclude)
     pd_Article = pd_models.sa_model(Article,
                                     types=AttributeType.COLUMN,  # also include columns
@@ -784,7 +784,7 @@ def test_User_from_orm_instance_with_relationships():
 
     # === Test: Partial models
     pd_models_partial = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
-                                            forwardref='pd_{model}Partial', make_optional=True)
+                                            naming='pd_{model}Partial', make_optional=True)
     pd_UserPartial = pd_models_partial.sa_model(User, exclude=user_exclude)
     pd_ArticlePartial = pd_models_partial.sa_model(Article)
     pd_models_partial.update_forward_refs()
@@ -805,7 +805,7 @@ def test_User_from_orm_instance_with_relationships():
 
     # === Test: Partial models, only loaded
     pdl_models_partial = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
-                                             forwardref='pdl_{model}Partial', make_optional=True,
+                                             naming='pdl_{model}Partial', make_optional=True,
                                              Base=SALoadedModel)
     pdl_UserPartial = pdl_models_partial.sa_model(User, exclude=user_exclude)
     pdl_ArticlePartial = pdl_models_partial.sa_model(Article)
@@ -842,7 +842,7 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     # We're interested in relationships (User) and columns (Article)
     g = sa2.pydantic.Models(__name__,
                             types=AttributeType.RELATIONSHIP,
-                            forwardref='pd_{model}Partial',
+                            naming='pd_{model}Partial',
                             make_optional=True, Base=SALoadedModel)
 
     pd_UserPartial = g.sa_model(User)

@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import DeclarativeMeta
 from sa2schema import AttributeType
 from sa2schema.sa_extract_info import ExcludeFilterT
 
-from .annotations import ModelT, SAModelT, ForwardRefGeneratorT, MakeOptionalFilterT
+from .annotations import ModelT, SAModelT, ModelNameMakerT, MakeOptionalFilterT
 from .base_model import SAModel
 from .sa_model import sa_model
 
@@ -20,8 +20,8 @@ class Models:
 
     For instance, a group of DB models, a group of input models, a group of output models.
 
-    A Namespace() is nothing mode than a partial(sa_model) that feeds the same `module` and `forwardref`.
-    This way, every model will have a common forward-reference pattern and be able to find one another.
+    A Namespace() is nothing mode than a partial(sa_model) that feeds the same `module` and `naming`.
+    This way, every model will have a common model naming pattern and be able to find one another.
 
     In addition to that, it remembers every model in its internal namespace,
     through which these forward references are resolved.
@@ -40,7 +40,7 @@ class Models:
 
     def __init__(self,
                  module: str,
-                 forwardref: ForwardRefGeneratorT = '{model}',
+                 naming: ModelNameMakerT = '{model}',
                  *,
                  types: AttributeType = AttributeType.COLUMN,
                  Base: Type[ModelT] = SAModel,
@@ -52,7 +52,7 @@ class Models:
 
         Args:
             module: The __name__ of the defining module
-            forwardref: a '{model}Input' pattern, or a callable(Model)->ForwardRef
+            naming: a '{model}Input' naming pattern, or a callable(Model)->str
             types: attribute types to include. See AttributeType
             Base: base Pydantic model to use. Can also use it to provide Config class
             make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
@@ -68,7 +68,7 @@ class Models:
             make_optional=make_optional,
             only_readable=only_readable,
             only_writable=only_writable,
-            forwardref=forwardref
+            naming=naming
         )
 
         self._base = Base

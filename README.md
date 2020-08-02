@@ -135,7 +135,7 @@ from sa2schema.to.pydantic import Models, AttributeType
 models_in_db = Models(__name__,
                       # Naming convention for our models: "...InDb"
                       # This is required to resolve forward references in Python annotations
-                      forwardref='{model}InDb',
+                      naming='{model}InDb',
                       # `types` specifies which attributes do you want to include.
                       # We include relationships explicitly, becase by default, they're excluded.
                       types=AttributeType.COLUMN | AttributeType.RELATIONSHIP
@@ -219,7 +219,7 @@ Let's create some partial models:
 ```python
 from sa2schema.to.pydantic import Models, AttributeType, SALoadedModel
 
-partial = Models(__name__, forwardref='{model}Partial',
+partial = Models(__name__, naming='{model}Partial',
                  # Include columns and relationships
                  types=AttributeType.COLUMN | AttributeType.RELATIONSHIP,
                  # Create a "partial model": make every field Optional[]

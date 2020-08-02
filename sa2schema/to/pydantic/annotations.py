@@ -26,10 +26,10 @@ MakeOptionalFilterFunction = Callable[[str, SAAttributeType], bool]
 MakeOptionalFilterT = Union[bool, Iterable[str], MakeOptionalFilterFunction]
 
 
-# A forward reference generator function(Model)->str
-# Returns the name for the forward reference
-ForwardRefGeneratorFunction = Callable[[DeclarativeMeta], str]
+# A model naming maker function(Model)->str
+# Returns the name for the model, used for forward references
+ModelNameMakerFunction = Callable[[DeclarativeMeta], str]
 
 
-# Forward reference pattern: a template '{model}Db', or a callable
-ForwardRefGeneratorT = Union[str, ForwardRefGeneratorFunction]
+# Model naming pattern: a template '{model}Db', or a callable
+ModelNameMakerT = Union[str, ModelNameMakerFunction]
