@@ -14,7 +14,7 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     if sqlalchemy:
         session.install(f'sqlalchemy=={sqlalchemy}')
     if pydantic:
-        session.install(f'pydantic=={pydantic}')
+        session.install(f'pydantic[email]=={pydantic}')
 
     session.run('pytest', 'tests/')
 

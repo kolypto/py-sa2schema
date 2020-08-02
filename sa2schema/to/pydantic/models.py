@@ -29,13 +29,13 @@ class Models:
     Finally, you can use it as a real namespace and access the models stored within.
 
     Example:
-        >>> # schemas.py
-        >>> from sa2schema import sa2
-        >>> from app.db import models  # SqlAlchemy models of your app
-        >>> ns = sa2.pydantic.Models(__name__, '{model}', types=AttributeType.RELATIONSHIP)
-        >>> User = ns.sa_model(models.User)
-        >>> Article = ns.sa_model(models.Article)
-        >>> ns.update_forward_refs()  # got to do it
+        # schemas.py
+        from sa2schema import sa2
+        from app.db import models  # SqlAlchemy models of your app
+        ns = sa2.pydantic.Models(__name__, '{model}', types=AttributeType.RELATIONSHIP)
+        User = ns.sa_model(models.User)
+        Article = ns.sa_model(models.Article)
+        ns.update_forward_refs()  # got to do it
     """
 
     def __init__(self,
@@ -107,6 +107,6 @@ class Models:
         for model in self._pydantic_names.values():
             model.update_forward_refs(**self._pydantic_names)
 
-    def __getattr__(self, model_name: str):
+    def __getattr__(self, model_name: str) -> BaseModel:
         """ Get a Pydantic model object by name """
         return self._original_names[model_name]

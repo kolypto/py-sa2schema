@@ -4,10 +4,12 @@ from .models import Base
 
 
 @pytest.fixture()
-def sqlite_session():
+def sqlite_session(Base=Base):
     engine, Session = init_database(url='sqlite://')
-    drop_all(engine, Base)
-    create_all(engine, Base)
+
+    if Base:
+        drop_all(engine, Base)
+        create_all(engine, Base)
 
     ssn = Session()
     try:

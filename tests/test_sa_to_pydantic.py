@@ -13,7 +13,7 @@ from sqlalchemy.orm.state import InstanceState
 from sa2schema import AttributeType, sa2
 from sa2schema.to.pydantic import SALoadedModel, SAGetterDict, SALoadedGetterDict
 
-from .models import User, Article, Number, EnumType
+from .models import Base, User, Article, Number, EnumType
 from .models import JTI_Employee, JTI_Engineer
 from .models import STI_Employee, STI_Manager, STI_Engineer
 
@@ -706,7 +706,7 @@ def test_plain_recursion():
     article_dict['author'] = user_dict
 
     with pytest.raises(RecursionError):
-        # It also falls into
+        # It also falls into infinite recursion
         user = xUser(**user_dict)
 
     # === Test 2. Recursive models linked

@@ -13,3 +13,5 @@ from .base_model import SAModel, SALoadedModel
 # (low-level) getter dicts that implement SA attribute access
 from .getter_dict import SAGetterDict, SALoadedGetterDict
 
+# Shortcuts
+from sa2schema import AttributeType  # noqa
