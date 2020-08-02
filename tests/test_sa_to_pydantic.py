@@ -739,6 +739,7 @@ def test_User_from_orm_instance_with_relationships():
     user_exclude = lambda name, attr: name not in ('articles_list',)
 
     # === Test: Models
+    # make the namespace
     pd_models = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
                                     forwardref='pd_{model}')
     pd_User = pd_models.sa_model(User, exclude=user_exclude)
@@ -746,6 +747,10 @@ def test_User_from_orm_instance_with_relationships():
                                     types=AttributeType.COLUMN,  # also include columns
                                     )
     pd_models.update_forward_refs()
+
+    # check that __getattr__() works as advertised
+    assert pd_User is pd_models.User
+    assert pd_Article is pd_models.Article
 
     # Empty user
     user = User()

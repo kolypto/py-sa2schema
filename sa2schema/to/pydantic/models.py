@@ -2,9 +2,10 @@
 
 
 from functools import partial
-from typing import Type, Optional
+from typing import Type, Optional, Mapping
 
 from pydantic import BaseModel
+from sqlalchemy.ext.declarative import DeclarativeMeta
 
 from sa2schema import AttributeType
 from sa2schema.sa_extract_info import ExcludeFilterT
@@ -22,8 +23,10 @@ class Models:
     A Namespace() is nothing mode than a partial(sa_model) that feeds the same `module` and `forwardref`.
     This way, every model will have a common forward-reference pattern and be able to find one another.
 
-    In addition to that, it remembers every model in its `.namespace` attribute,
+    In addition to that, it remembers every model in its internal namespace,
     through which these forward references are resolved.
+
+    Finally, you can use it as a real namespace and access the models stored within.
 
     Example:
         >>> # schemas.py
@@ -72,7 +75,8 @@ class Models:
         self._types = types
 
         # remember these models
-        self.namespace = {}
+        self._original_names: Mapping[str, DeclarativeMeta] = {}
+        self._pydantic_names: Mapping[str, SAModel] = {}
 
     def sa_model(self,
                  Model: Type[SAModelT],
@@ -81,7 +85,7 @@ class Models:
                  types: AttributeType = AttributeType.NONE,
                  exclude: ExcludeFilterT = (),
                  ) -> Type[BaseModel]:
-        """ Add a model to the namespace
+        """ Add a model to the _pydantic_names
 
         Args:
             Model: the SqlAlchemy model to convert
@@ -94,10 +98,15 @@ class Models:
                                Parent=Parent or self._base,
                                types=self._types | types,
                                exclude=exclude)
-        self.namespace[model.__name__] = model
+        self._original_names[Model.__name__] = model
+        self._pydantic_names[model.__name__] = model
         return model
 
     def update_forward_refs(self):
         """ Update forward references so that models point to one another """
-        for model in self.namespace.values():
-            model.update_forward_refs(**self.namespace)
+        for model in self._pydantic_names.values():
+            model.update_forward_refs(**self._pydantic_names)
+
+    def __getattr__(self, model_name: str):
+        """ Get a Pydantic model object by name """
+        return self._original_names[model_name]
