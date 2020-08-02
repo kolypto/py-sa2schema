@@ -23,8 +23,14 @@ jobs:
           ${{ runner.os }}-nox-2-
     - run: pip install poetry nox
     - run: nox --report nox-report.json
+    # Artifacts
     - name: Nox report
       uses: actions/upload-artifact@v2
       with:
         name: nox-report
         path: nox-report.json
+    - name: Coverage
+      uses: actions/upload-artifact@v2
+      with:
+        name: pytest-cov
+        path: htmlcov/

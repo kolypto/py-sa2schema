@@ -16,7 +16,13 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     if pydantic:
         session.install(f'pydantic[email]=={pydantic}')
 
-    session.run('pytest', 'tests/')
+    # Only run coverage with latest library versions
+    run_with_coverage = sqlalchemy is None and pydantic is None
+
+    if run_with_coverage:
+        session.run('pytest', 'tests/', '--cov', '--cov-report=html')
+    else:
+        session.run('pytest', 'tests/')
 
 
 @nox.session()
