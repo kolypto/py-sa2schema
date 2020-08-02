@@ -22,4 +22,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-nox-2-
     - run: pip install poetry nox
-    - run: nox -r
+    - run: nox --report nox-report.json
+    - name: Nox report
+      uses: actions/upload-artifact@v2
+      with:
+        name: nox-report
+        path: nox-report.json
