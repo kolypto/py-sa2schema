@@ -1,10 +1,10 @@
 """ sa_model() implementation: converts from SqlAlchemy model to Pydantic model """
-
-
+import typing
 from typing import Tuple, Dict, Callable, Type, ForwardRef, Optional, Iterable
 
 from pydantic import BaseModel, create_model, Field, Required
 from pydantic.fields import Undefined
+from pydantic.typing import resolve_annotations
 from sqlalchemy import inspect
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
@@ -12,6 +12,7 @@ from sa2schema import AttributeType, sa_model_info
 from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
 from sa2schema.attribute_info import NOT_PROVIDED
 from sa2schema.sa_extract_info import ExcludeFilterT, _ColumnsOrColumnNames
+from sa2schema.compat import get_origin, get_args
 
 from .base_model import SAModel
 from .annotations import ModelT, SAModelT, MakeOptionalFilterT, MakeOptionalFilterFunction, ModelNameMakerT, ModelNameMakerFunction
@@ -83,7 +84,7 @@ def sa_model(Model: Type[SAModelT],
 
     # Create the model
     pd_model = create_model(
-        __model_name=generate_model_name(Model, naming),
+        __model_name=naming(Model),
         __module__=module,
         __base__=Parent,
         **sa_model_fields(Model, types=types,
@@ -104,7 +105,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
                     only_writable: bool = False,
                     exclude: ExcludeFilterT = (),
                     can_omit_nullable: bool = True,
-                    naming: Optional[ModelNameMakerFunction],
+                    naming: ModelNameMakerFunction,
                     ) -> Dict[str, Tuple[type, Field]]:
     """ Take an SqlAlchemy model and generate pydantic Field()s from it
 
@@ -122,12 +123,12 @@ def sa_model_fields(Model: DeclarativeMeta, *,
         can_omit_nullable: `False` to make nullable fields and fields with defaults required.
         naming: optionally, a callable(Model) naming pattern generator. This is required for resolving relationship targets.
             If relationships aren't used, provide some exception thrower.
-            If None, no relationship will be replaced with a forward reference.
     Returns:
         a dict: attribute names => (type, Field)
     """
     # Model annotations will override any Column types
     model_annotations = getattr(Model, '__annotations__', {})
+    model_annotations = resolve_annotations(model_annotations, Model.__module__)
 
     # Walk attributes and generate Field()s
     return {
@@ -167,22 +168,14 @@ def make_field(attr_info: AttributeInfo,
     )
 
 
-def generate_model_name(Model: DeclarativeMeta, naming: Optional[ModelNameMakerFunction]) -> str:
-    """ Generate a name for the model """
-    if naming:
-        return naming(Model)
-    else:
-        return Model.__name__
-
-
 def pydantic_field_type(attr_name: str,
                         attr_info: AttributeInfo,
                         model_annotations: Dict[str, type],
                         make_optional: bool,
-                        naming: Optional[ModelNameMakerT],
+                        naming: ModelNameMakerT,
                         ) -> type:
     """ Choose a field type for pydantic """
-    # For relationships, we use the naming() generator to generate a name, make a ForwardRref, and replace the model
+    # For relationships, we use the naming() generator to generate a name, make a ForwardRef, and replace the model
     if isinstance(attr_info, (RelationshipInfo, AssociationProxyInfo)) and naming:
         attr_info = attr_info.replace_model(
             ForwardRef(naming(attr_info.target_model))
@@ -194,7 +187,16 @@ def pydantic_field_type(attr_name: str,
         )
 
     # Get the type
-    type_ = model_annotations.get(attr_name, attr_info.final_value_type)
+
+    # If a model annotation is given, use it
+    if attr_name in model_annotations:
+        type_ = model_annotations[attr_name]
+        # replace SqlAlchemy models with forward refs
+        type_ = _replace_models_with_forward_references(type_, naming)
+    # If a type is not overridden in annotations, take one from the attribute
+    else:
+        # In case it referenced other models, replacements have already been made
+        type_ = attr_info.final_value_type
 
     # make_optional?
     if make_optional:
@@ -204,7 +206,42 @@ def pydantic_field_type(attr_name: str,
     return type_
 
 
-def _prepare_naming_function(naming: Optional[ModelNameMakerT]) -> Optional[ModelNameMakerFunction]:
+def _replace_models_with_forward_references(type_: Type, naming: ModelNameMakerFunction) -> Type:
+    """ Walk the arguments of `type_` and replace every possible reference to any SqlAlchemy model """
+    # SqlAlchemy model
+    if isinstance(type_, DeclarativeMeta):
+        return ForwardRef(naming(type_))
+    # typing.Optional[], typing.Union[], and other subscriptable types
+    elif isinstance(type_, typing._GenericAlias):
+        # type_: List[models.User]
+        # original_type: list
+        # original_args: (models.User,)
+        original_type, type_args = get_origin(type_), get_args(type_)
+
+        # try to normalize it:
+        # convert type_=list to type_=typing.List
+        try:
+            original_type = getattr(
+                typing,
+                typing._normalize_alias[original_type.__name__]
+            )
+        except (KeyError, AttributeError) as e:
+            pass
+
+        # Recurse: convert every argument
+        arghs = tuple(
+            _replace_models_with_forward_references(t, naming)
+            for t in type_args
+        )
+
+        # Reconstruct
+        return original_type[arghs]
+    else:
+        return type_
+
+
+
+def _prepare_naming_function(naming: Optional[ModelNameMakerT]) -> ModelNameMakerFunction:
     """ Given the `naming` argument, convert it into a guaranteed Optional[callable]
 
     If the argument is a function, leave it as it is.
@@ -217,7 +254,7 @@ def _prepare_naming_function(naming: Optional[ModelNameMakerT]) -> Optional[Mode
         return lambda model: naming.format(model=model.__name__)
     # `None` is acceptable
     elif naming is None:
-        return naming
+        return lambda model: model.__name__
     # Callable is ok
     elif isinstance(naming, Callable):
         return naming

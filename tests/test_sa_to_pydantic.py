@@ -407,6 +407,55 @@ def test_sa_model_User_relationships():
         }
 
 
+def test_sa_model_user_relationships_in_annotations():
+    """ Test annotated classes """
+
+    # Declare some models
+    import sqlalchemy as sa
+    from sqlalchemy.ext.declarative import declarative_base
+
+    Base = declarative_base()
+
+    class User(Base):
+        __tablename__ = 'users'
+        id = sa.Column(sa.Integer, primary_key=True)
+
+        # Annotated relationship
+        articles: List[Article] = sa.orm.relationship(lambda: Article)
+
+    class Article(Base):
+        __tablename__ = 'articles'
+        id = sa.Column(sa.Integer, primary_key=True)
+        user_id = sa.Column(sa.ForeignKey(User.id))
+
+        # Annotated relationship
+        user: User = sa.orm.relationship(User)
+
+    # sa_model() them
+    # This `Article` annotation used to raise the error:
+    #       RuntimeError: no validator found for <class 'tests.models.Article'>,
+    #       see `arbitrary_types_allowed` in Config
+    # which meant that the annotation wasn't converted into a proper ForwardRef.
+    # So in this test, if the error isn't raised, everything went fine
+    models = sa2.pydantic.Models(__name__, types=AttributeType.ALL, naming='{model}Model')
+    models.sa_model(User)
+    models.sa_model(Article)
+    models.update_forward_refs()
+
+    # Use it: no errors
+    user = User(
+        id=1,
+        articles=[Article(id=1)]
+    )
+    pd_user = models.User.from_orm(user)
+    assert pd_user.dict() == dict(
+        id=1,
+        articles=[
+            dict(id=1, user_id=None, user=None)
+        ]
+    )
+
+
 def test_sa_model_User_composite():
     """ User: COMPOSITE """
     # Difficulty: a composite refers to a type class which itself requires a pydantic model to work
