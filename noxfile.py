@@ -17,7 +17,7 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
         session.install(f'pydantic[email]=={pydantic}')
 
     # Test
-    session.run('pytest', 'tests/', '--cov')
+    session.run('pytest', 'tests/', '--cov=sa2schema')
 
 
 @nox.session()
