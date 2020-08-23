@@ -7,6 +7,9 @@ from .sa_model import sa_model, ALL_BUT_PRIMARY_KEY
 # Namespace for models that can relate to one another
 from .models import Models
 
+# Pydantic Schema Tools
+from .schema_tools import derive_model
+
 # Base models for Pydantic-SqlAlchemy models
 from .base_model import SAModel, SALoadedModel
 
@@ -14,4 +17,5 @@ from .base_model import SAModel, SALoadedModel
 from .getter_dict import SAGetterDict, SALoadedGetterDict
 
 # Shortcuts
+import sa2schema  # noqa
 from sa2schema import AttributeType  # noqa

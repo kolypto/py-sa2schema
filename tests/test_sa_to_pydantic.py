@@ -925,7 +925,7 @@ def test_from_orm_with_properties():
     assert pd_User.from_orm(user).dict(exclude_unset=True) == {
         'int': 1,
         'documented': 'hey',
-        # @property is now retrieved
+        # @property is now retrieved because `documented` is loaded
         'property_documented': 'hey',
     }
 
@@ -1159,6 +1159,20 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
         },
     )
 
+
+def test_derive_model():
+    # Create a model
+    class Animal(BaseModel):
+        id: int
+        name: str
+        age: int
+
+    assert set(Animal.__fields__) == {'id', 'name', 'age'}
+
+    # Derive a model
+
+    SecretAnimal = sa2.pydantic.derive_model(Animal, 'SecretAnimal', exclude=('name', 'age'))
+    assert set(SecretAnimal.__fields__) == {'id'}  # only one field left
 
 
 # TODO: test field name conflicts with pydantic (aliasing)
