@@ -6,6 +6,7 @@ from pydantic.utils import GetterDict
 from sqlalchemy.orm.base import instance_state
 from sqlalchemy.orm.state import InstanceState
 
+from sa2schema.util import loaded_attribute_names
 from sa2schema.sa_extract_info import all_sqlalchemy_model_attribute_names
 
 
@@ -34,7 +35,7 @@ class SALoadedGetterDict(SAGetterDict):
     Be careful, though: if a field isn't loaded, this getter will return a None,
     which might not always make sense to your application.
     """
-    __slots__ = ('_unloaded',)
+    __slots__ = ('_loaded',)
 
     #: const: the value to return for unloaded attributes
     #: Note that the very same value will be used for collections as well.
@@ -42,27 +43,27 @@ class SALoadedGetterDict(SAGetterDict):
     #: see: pydantic.validate_model()
     EMPTY_VALUE = None
 
-    #: Cached set of unloaded attributes.
+    #: Cached set of loaded attributes.
     #: We cache it because it's not supposed to be modified while we're iterating the model
-    _unloaded: Set[str]
+    _loaded: Set[str]
 
     def __init__(self, obj: Any):
         super().__init__(obj)
 
         # Make a list of attributes the loading of which would lead to an unwanted DB query
         state: InstanceState = instance_state(self._obj)
-        self._unloaded = state.unloaded
+        self._loaded = loaded_attribute_names(state)
 
     # Methods that only return attributes that are loaded; nothing more
 
     def __getitem__(self, key: str) -> Any:
-        if key in self._unloaded:
-            return self.EMPTY_VALUE
-        else:
+        if key in self._loaded:
             return super().__getitem__(key)
+        else:
+            return self.EMPTY_VALUE
 
     def get(self, key: Any, default: Any = None) -> Any:
-        if key in self._unloaded:
-            return self.EMPTY_VALUE
-        else:
+        if key in self._loaded:
             return super().get(key, default)
+        else:
+            return self.EMPTY_VALUE

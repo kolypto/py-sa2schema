@@ -5,6 +5,7 @@ import sqlalchemy as sa
 from pydantic import BaseModel, BaseConfig, Extra
 from pydantic.utils import GetterDict
 
+from sa2schema.util import loaded_attribute_names
 from .annotations import ModelT, SAModelT
 from .getter_dict import SAGetterDict, SALoadedGetterDict
 from .base_model_recursion import NoneRecursiveParserMixin
@@ -48,7 +49,8 @@ class SALoadedModel(SAModel):
 
         # Unset unloaded fields
         if res is not None:
-            res.__fields_set__.difference_update(sa.orm.base.instance_state(obj).unloaded)
+            loaded = loaded_attribute_names(sa.orm.base.instance_state(obj))
+            res.__fields_set__.intersection_update(loaded)
 
         # Done
         return res

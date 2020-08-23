@@ -205,8 +205,8 @@ class PropertyInfo(AttributeInfo):
         # Try to get the default from a setter function's first argument
         try:
             default = attr.fset.__defaults__[0]  # noqa
-        # no setter, or no default value
-        except (AttributeError, IndexError):
+        # no setter, or no default value, or no defaults at all
+        except (AttributeError, IndexError, TypeError):
             default = NOT_PROVIDED
 
         # attribute_type
