@@ -1,9 +1,11 @@
 """ Implementations of Pydantic BaseModel: for all models that depend on SqlAlchemy """
 from typing import Type
 
+import sqlalchemy as sa
 from pydantic import BaseModel, BaseConfig, Extra
 from pydantic.utils import GetterDict
 
+from .annotations import ModelT, SAModelT
 from .getter_dict import SAGetterDict, SALoadedGetterDict
 from .base_model_recursion import NoneRecursiveParserMixin
 
@@ -31,11 +33,22 @@ class SAModel(NoneRecursiveParserMixin, BaseModel):
 class SALoadedModel(SAModel):
     """ Base for SqlAlchemy models that will only return attributes that are already loaded.
 
-    This model will only contain attributes which were already loaded.
-    Unloaded attributes will be set to `None`.
+    Unloaded attributes will have `None` as their values.
     Use with `make_optional`: otherwise, you'll get many "can't be None" errors
     """
 
     class Config(SAModel.Config):
         # GetterDict that won't trigger the loading of any attributes
         getter_dict = SALoadedGetterDict
+
+    @classmethod
+    def from_orm(cls: ModelT, obj: SAModelT) -> ModelT:
+        # Convert
+        res = super().from_orm(obj)
+
+        # Unset unloaded fields
+        if res is not None:
+            res.__fields_set__.difference_update(sa.orm.base.instance_state(obj).unloaded)
+
+        # Done
+        return res

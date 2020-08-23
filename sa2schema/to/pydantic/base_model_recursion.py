@@ -28,7 +28,7 @@ class NoneRecursiveParserMixin:
     def from_orm(cls: ModelT, obj: SAModelT) -> 'ModelT':
         # Prevent recursive parsing. This is important for every relationship with a backref
         # because SqlAlchemy will typically establish a bi-directional reference, which will read to RecursionError.
-        # Our approach is to replace the
+        # Our approach is to replace them with None
         with prevent_model_recursion(obj, marker_key=('sa2.pydantic', 'from_orm()', cls)) as maybe_object:
             # In case of recursion, return `None`
             if maybe_object is None:

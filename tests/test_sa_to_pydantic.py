@@ -570,6 +570,11 @@ def test_sa_model_from_orm_instance():
     pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
     assert pdl.dict() == all_none
 
+    # Use dict(exclude_unset=True)
+    assert pdn.dict(exclude_unset=True) == dict(**all_none)
+    assert pdl.dict(exclude_unset=True) == dict()  # notice how SALoadedModel removed unloaded attributes
+
+
 
     # === Test: Number(), has no database identity, all values set
     # Note: the primary key is not yet set :)
@@ -607,6 +612,8 @@ def test_sa_model_from_orm_instance():
     pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
     assert pdl.dict() == dict(id=None, **init_fields)
 
+
+
     # === Test: Number(), persistent, all fields loaded
     committed_values = dict(id=1, n=None, nd1=None, nd2=None, nd3=None, d1=0, d2=0, d3=0)
 
@@ -625,6 +632,8 @@ def test_sa_model_from_orm_instance():
     pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
     assert pdl.dict() == committed_values
 
+
+
     # === Test: Number(), persistent, all fields loaded, but modified
     modified_values = dict(id=2, n=3, nd1=4, nd2=5, nd3=6)
     final_modified_values = {**committed_values, **modified_values}
@@ -642,6 +651,7 @@ def test_sa_model_from_orm_instance():
 
     pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
     assert pdl.dict() == final_modified_values
+
 
 
     # === Test: Number(), persistent, unloaded and expired fields

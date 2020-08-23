@@ -1,4 +1,4 @@
-""" Implementatins of GetterDict: a wrapper that makes an SqlAlchemy model look like a dict """
+""" Implementations of GetterDict: a wrapper that makes an SqlAlchemy model look like a dict """
 
 from typing import Iterator, Any, Set
 
@@ -26,7 +26,7 @@ class SAGetterDict(GetterDict):
 
 
 class SALoadedGetterDict(SAGetterDict):
-    """ Adapter that extracts only the loaded data from SqlAlchemy models
+    """ Adapter that extracts only the loaded data from SqlAlchemy models, leaving every other field None
 
     The advantage of this GetterDict is that it will never trigger loading of any SqlAlchemy
     attributes that aren't loaded.
@@ -38,8 +38,8 @@ class SALoadedGetterDict(SAGetterDict):
 
     #: const: the value to return for unloaded attributes
     #: Note that the very same value will be used for collections as well.
-    #: NOTE: set it to `pydantic.main._missing` and Pydantic will return Field defaults instead.
-    #: see: validate_model()
+    #: Special: `pydantic.main._missing` will make Pydantic return Field defaults instead.
+    #: see: pydantic.validate_model()
     EMPTY_VALUE = None
 
     #: Cached set of unloaded attributes.
