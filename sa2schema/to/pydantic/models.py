@@ -2,14 +2,12 @@
 
 
 from functools import partial
-from typing import Type, Optional, Mapping
-
 from pydantic import BaseModel
 from sqlalchemy.ext.declarative import DeclarativeMeta
+from typing import Type, Optional, Mapping, Union
 
 from sa2schema import AttributeType
 from sa2schema.sa_extract_info import ExcludeFilterT
-
 from .annotations import ModelT, SAModelT, ModelNameMakerT, MakeOptionalFilterT
 from .base_model import SAModel
 from .sa_model import sa_model
@@ -75,8 +73,8 @@ class Models:
         self._types = types
 
         # remember these models
-        self._original_names: Mapping[str, DeclarativeMeta] = {}
-        self._pydantic_names: Mapping[str, SAModel] = {}
+        self._original_names: Mapping[str, BaseModel] = {}
+        self._pydantic_names: Mapping[str, BaseModel] = {}
 
     def sa_model(self,
                  Model: Type[SAModelT],
@@ -110,3 +108,24 @@ class Models:
     def __getattr__(self, model_name: str) -> BaseModel:
         """ Get a Pydantic model object by name """
         return self._original_names[model_name]
+
+    def __iter__(self):
+        """ List Pydantic models """
+        return iter(self._original_names)
+
+    def __contains__(self, model: Union[str, SAModelT]):
+        """ Does this namespace contain the specific model?
+
+        Args:
+            model: Model name, or Model class
+        """
+        # Get the model name
+        if isinstance(model, str):
+            model_name = model
+        elif isinstance(model, type):
+            model_name = model.__name__
+        else:
+            raise ValueError(model)
+
+        # Done
+        return model_name in self._original_names

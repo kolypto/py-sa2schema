@@ -1,8 +1,7 @@
 from typing import List, Set, Dict, Any, Union
 
-from sa2schema.sa_extract_info import all_sqlalchemy_model_attribute_names
-from .models import *
-
+from sa2schema import sa_model_primary_key_names, sa_model_primary_key_info
+from sa2schema import all_sqlalchemy_model_attribute_names
 from sa2schema import sa_model_info, sa_attribute_info, AttributeType
 from sa2schema.attribute_info import (
     NOT_PROVIDED,
@@ -11,10 +10,12 @@ from sa2schema.attribute_info import (
     CompositeInfo, ColumnExpressionInfo,
     RelationshipInfo, AssociationProxyInfo, DynamicLoaderInfo
 )
+from .models import *
 
 
 def test_all_sqlalchemy_model_attribute_names():
     """ Test all_sqlalchemy_model_attribute_names() """
+    assert sa_model_primary_key_names(User) == ('annotated_int',)
     assert all_sqlalchemy_model_attribute_names(User) == (
         '_ignored',
         'annotated_int',
@@ -44,6 +45,7 @@ def test_all_sqlalchemy_model_attribute_names():
         'articles_q',
     )
 
+    assert sa_model_primary_key_names(Article) == ('id',)
     assert all_sqlalchemy_model_attribute_names(Article) == (
         'id',
         'user_id',
@@ -51,6 +53,7 @@ def test_all_sqlalchemy_model_attribute_names():
         'user',
     )
 
+    assert sa_model_primary_key_names(Number) == ('id',)
     assert all_sqlalchemy_model_attribute_names(Number) == (
         'id',
         'n',
@@ -423,6 +426,9 @@ def test_sa_model_info_extraction__User():
     for attribute_name, expected_attribute_info in expected_fields.items():
         assert sa_attribute_info(User, attribute_name) == expected_attribute_info
 
+    # Test primary key
+    assert sa_model_primary_key_info(User) == {'annotated_int': expected_fields['annotated_int']}
+
 
 def test_sa_model_info_extractin__Article():
     """ Test sa_model_info(Article) """
@@ -489,6 +495,9 @@ def test_sa_model_info_extractin__Article():
         'title': Optional[str],
         'user': Optional[User],
     }
+
+    # Test primary key
+    assert sa_model_primary_key_info(Article) == {'id': expected_fields['id']}
 
 
 def test_sa_model_info_extractin__Number():
@@ -562,6 +571,10 @@ def test_sa_model_info_extractin__Number():
     }
 
     assert generated_fields == expected_fields
+
+
+    # Test primary key
+    assert sa_model_primary_key_info(Number) == {'id': expected_fields['id']}
 
 
 def test_sa_model_info_extraction__JTI_Company():

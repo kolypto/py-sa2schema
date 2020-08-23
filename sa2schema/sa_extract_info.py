@@ -56,6 +56,20 @@ def sa_model_info(Model: DeclarativeMeta, *,
     }
 
 
+def sa_model_primary_key_names(Model: DeclarativeMeta) -> Tuple[str]:
+    """ Get the list of primary key attribute names """
+    return tuple(c.key for c in class_mapper(Model).primary_key)
+
+
+@lru_cache(typed=True)
+def sa_model_primary_key_info(Model: DeclarativeMeta) -> Mapping[str, AttributeInfo]:
+    """ Extract information about the primary key of an SqlAlchemy model """
+    return {
+        attribute_name: sa_attribute_info(Model, attribute_name)
+        for attribute_name in sa_model_primary_key_names(Model)
+    }
+
+
 def sa_attribute_info(Model: DeclarativeMeta, attribute_name: str) -> AttributeInfo:
     """ Extract info from an individual attribute """
     # Get the attribute
