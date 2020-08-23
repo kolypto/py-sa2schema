@@ -38,6 +38,7 @@ from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.util import symbol
 
 from .defs import AttributeType
+from .property import get_property_loads_attribute_names
 
 
 # Value not provided (e.g. `default` value)
@@ -177,6 +178,11 @@ class PropertyInfo(AttributeInfo):
     * default: from setter's function argument's annotation (if any)
     * doc: from docstring
     """
+
+    # The list of attribute names that this property loads when accessed.
+    # Only available when @loads_attributes is used on it.
+    loads_attributes: Optional[Set[str]] = None
+
     @staticmethod
     def extracts() -> AttributeType:
         return AttributeType.PROPERTY_R | \
@@ -225,6 +231,7 @@ class PropertyInfo(AttributeInfo):
             nullable=nullable,
             readable=readable,
             writable=writable,
+            loads_attributes=get_property_loads_attribute_names(attr),
             value_type=value_type,
             default=default,
             default_factory=None,

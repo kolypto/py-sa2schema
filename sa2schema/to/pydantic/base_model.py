@@ -1,5 +1,5 @@
 """ Implementations of Pydantic BaseModel: for all models that depend on SqlAlchemy """
-from typing import Type
+from typing import Type, Mapping
 
 import sqlalchemy as sa
 from pydantic import BaseModel, BaseConfig, Extra
@@ -43,14 +43,22 @@ class SALoadedModel(SAModel):
         getter_dict = SALoadedGetterDict
 
     @classmethod
-    def from_orm(cls: ModelT, obj: SAModelT) -> ModelT:
+    def from_orm(cls: ModelT, obj: SAModelT, pluck: Mapping[str, bool] = None) -> ModelT:
+        if pluck:
+            raise NotImplementedError  # TODO: implement. How? Perhaps, keep a stack of objects using Session.info?
+
         # Convert
         res = super().from_orm(obj)
 
         # Unset unloaded fields
         if res is not None:
-            loaded = loaded_attribute_names(sa.orm.base.instance_state(obj))
-            res.__fields_set__.intersection_update(loaded)
+            # NOTE: SALoadedGetterDict has decided to exclude some fields, but it was unable to update __fields_set__
+            # Therefore, we have to do it here.
+            # Why we have to do it here? Because GetterDict has no access to the Pydantic model.
+            # Why do it at all? Because otherwise unloaded attributes will look like they have `None`s from the DB;
+            # but because of __fields_set__, we can leverage BaseModel.dict(exclude_unset=True)
+            excluded = SALoadedGetterDict.get_names_excluded_from(obj)
+            res.__fields_set__.difference_update(excluded)
 
         # Done
         return res

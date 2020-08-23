@@ -890,6 +890,45 @@ def test_User_from_orm_instance_with_relationships():
     )
 
 
+def test_from_orm_with_properties():
+    """ Test from_orm() with @properties """
+    # Prepare a model that takes @property into consideration
+    pd_User = sa2.pydantic.sa_model(
+        User, SALoadedModel,
+        types=AttributeType.COLUMN | AttributeType.PROPERTY_R,
+        make_optional=True,  # all fields are optional
+    )
+
+    # Now here is the issue that I had.
+    # `SALoadedModel` is a smart model that only reports fields that are loaded. It won't trigger lazy loading.
+    # But here's a catch. @property.
+    # When you load a property, you have literally no idea what other attributes it may trigger.
+    # This may result in numerous lazy-loads.
+    # That's unacceptable.
+
+    # For this reason, we annotate properties with the list of attributes it depends upon.
+    # A property would only be included if those attributes have been loaded.
+    # Un-annotated properties won't be loaded at all, because the consequences are potentially destructive.
+
+    # User.documented is not set
+    # This means that User.property_documented that relies on it won't be retrieved
+    # No other properties are even considered
+    user = sa_set_committed_state(User(), int=1)
+    assert pd_User.from_orm(user).dict(exclude_unset=True) == {
+        # The only loaded attribute
+        'int': 1,
+    }
+
+    # User.documented is set
+    # User.property_documented can now be retrieved
+    user = sa_set_committed_state(User(), int=1, documented='hey')
+    assert pd_User.from_orm(user).dict(exclude_unset=True) == {
+        'int': 1,
+        'documented': 'hey',
+        # @property is now retrieved
+        'property_documented': 'hey',
+    }
+
 # endregion
 
 

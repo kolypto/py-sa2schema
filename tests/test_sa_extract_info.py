@@ -176,6 +176,7 @@ def test_sa_model_info_extraction__User():
             nullable=True,  # no type. No idea. May be null as well.
             readable=True,
             writable=False,  # no setter
+            loads_attributes=None,
             value_type=Any,  # no idea
             default=NOT_PROVIDED,
             default_factory=None,
@@ -187,6 +188,7 @@ def test_sa_model_info_extraction__User():
             nullable=False,  # return value is not Optional[]
             readable=True,
             writable=False,  # no setter
+            loads_attributes=None,
             value_type=str,
             default=NOT_PROVIDED,
             default_factory=None,
@@ -198,6 +200,7 @@ def test_sa_model_info_extraction__User():
             nullable=True,  # no return value. May be null.
             readable=True,
             writable=False,  # no setter
+            loads_attributes={'documented'},  # read from @loads_attributes()
             value_type=Any,  # no return value
             default=NOT_PROVIDED,
             default_factory=None,
@@ -209,6 +212,7 @@ def test_sa_model_info_extraction__User():
             nullable=True,  # explicitly Optional[]
             readable=True,
             writable=False,  # no setter
+            loads_attributes=None,
             value_type=str,  # unwrapped
             default=NOT_PROVIDED,
             default_factory=None,
@@ -220,6 +224,7 @@ def test_sa_model_info_extraction__User():
             nullable=False,  # no Optional[]
             readable=True,
             writable=True,  # with setter
+            loads_attributes=None,
             value_type=str,  # type
             default='default',  # from setter's argument
             default_factory=None,
@@ -231,6 +236,7 @@ def test_sa_model_info_extraction__User():
             nullable=False,  # no Optional[]
             readable=True,
             writable=False,  # no setter
+            loads_attributes=None,
             value_type=str,  # type
             default=NOT_PROVIDED,
             default_factory=None,
@@ -242,6 +248,7 @@ def test_sa_model_info_extraction__User():
             nullable=False,  # no Optional[]
             readable=True,
             writable=True,  # setter
+            loads_attributes=None,
             value_type=str,  # type
             default='default',  # from setter's argument
             default_factory=None,
