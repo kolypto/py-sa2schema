@@ -6,3 +6,6 @@ except ModuleNotFoundError as e:
         pass
     else:
         raise
+
+# Useful shortcuts
+from sa2schema import *
