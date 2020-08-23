@@ -18,6 +18,9 @@ from .models import JTI_Employee, JTI_Engineer
 from .models import STI_Employee, STI_Manager, STI_Engineer
 
 
+# region Test sa_model()
+
+
 def test_sa_model_User_columns():
     """ User: COLUMN """
     # Test User: only columns
@@ -521,6 +524,12 @@ def test_sa_model_User_make_optional():
     }
 
 
+# endregion
+
+
+# region Test from_orm()
+
+
 def test_sa_model_from_orm_instance():
     """ Test how GetterDict works with SqlAlchemy models, and how sa_model() works with it """
     # Internally, it uses some really generic stuff (dir()) which might not always play nicely with SqlAlchemy
@@ -792,7 +801,6 @@ def test_plain_recursion():
         user.dict()
 
 
-
 def test_User_from_orm_instance_with_relationships():
     """ Use sa_model().from_orm() with relationships """
     user_exclude = lambda name, attr: name not in ('articles_list',)
@@ -882,6 +890,9 @@ def test_User_from_orm_instance_with_relationships():
     )
 
 
+# endregion
+
+
 def test_with_real_sqlalchemy_session(sqlite_session: Session):
     ssn = sqlite_session
 
@@ -940,6 +951,13 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
         user=None,  # not loaded
     )
 
+    assert pd_article.dict(exclude_unset=True) == dict(
+        id=1,
+        title='1',
+        user_id='1',
+        # unloaded attributes are not listed because of `exclude_unset`
+    )
+
     # === Test: Columns: load a full Article + Article.user
     article = ssn.query(Article).options(joinedload(Article.user)).first()
 
@@ -954,6 +972,15 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
             articles_dict_attr=None,  # not loaded
             articles_dict_keyfun=None,  # not loaded
         ),
+    )
+
+    assert pd_article.dict(exclude_unset=True) == dict(
+        id=1,
+        title='1',
+        user_id='1',
+        user=dict(
+            # unloaded attributes are not listed because of `exclude_unset`
+        )
     )
 
     # === Test: Columns: load a full Article + Article.user + Article.user.articles_list
