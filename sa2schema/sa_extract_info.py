@@ -2,30 +2,22 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Union, Callable, Mapping, Dict, Iterable, Sequence, Tuple
+from typing import Mapping, Dict, Sequence, Tuple
 
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.orm import class_mapper, Mapper
 
 from . import field_filters
+from .annotations import FilterT
 from .attribute_info import AttributeInfo, SAAttributeType
 from .defs import AttributeType
-
-# A filter function that decides whether to exclude a certain field.
-# function(field-name, attribute-object) -> bool
-# return `True` to exclude a field, `False` to include it.
-ExcludeFilterFunction = Callable[[str, SAAttributeType], bool]
-
-
-# Exclude filter: a function, or a set of field names
-ExcludeFilterT = Union[Iterable[str], ExcludeFilterFunction]
 
 
 @lru_cache(typed=True)  # makes it really, really cheap to inspect models
 def sa_model_info(Model: DeclarativeMeta, *,
                   types: AttributeType,
-                  exclude: ExcludeFilterT = (),
+                  exclude: FilterT = (),
                   ) -> Mapping[str, AttributeInfo]:
     """ Extract information on every attribute of an SqlAlchemy model
 

@@ -1,14 +1,12 @@
 """ Implementations of Pydantic BaseModel: for all models that depend on SqlAlchemy """
 from typing import Type, Mapping
 
-import sqlalchemy as sa
 from pydantic import BaseModel, BaseConfig, Extra
 from pydantic.utils import GetterDict
 
-from sa2schema.util import loaded_attribute_names
 from .annotations import ModelT, SAModelT
-from .getter_dict import SAGetterDict, SALoadedGetterDict
 from .base_model_recursion import NoneRecursiveParserMixin
+from .getter_dict import SAGetterDict, SALoadedGetterDict
 
 
 class SAModel(NoneRecursiveParserMixin, BaseModel):

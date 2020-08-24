@@ -9,7 +9,6 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
 
 from sa2schema.compat import Literal  # noqa
 
-
 # SqlAlchemyModel
 SAModelT = TypeVar('SAModelT', bound=DeclarativeMeta)
 

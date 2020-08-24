@@ -1,13 +1,11 @@
 """ Models: container for models that can relate to one another """
 
-
 from functools import partial
-from pydantic import BaseModel
-from sqlalchemy.ext.declarative import DeclarativeMeta
 from typing import Type, Optional, Mapping, Union
 
+from pydantic import BaseModel
+
 from sa2schema import AttributeType
-from sa2schema.sa_extract_info import ExcludeFilterT
 from .annotations import ModelT, SAModelT, ModelNameMakerT, FilterT
 from .base_model import SAModel
 from .sa_model import sa_model
@@ -81,7 +79,7 @@ class Models:
                  Parent: Optional[Type[ModelT]] = None,
                  *,
                  types: AttributeType = AttributeType.NONE,
-                 exclude: ExcludeFilterT = (),
+                 exclude: FilterT = (),
                  ) -> Type[BaseModel]:
         """ Add a model to the _pydantic_names
 

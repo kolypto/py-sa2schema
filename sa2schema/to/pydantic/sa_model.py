@@ -7,15 +7,14 @@ from pydantic.fields import Undefined
 from pydantic.typing import resolve_annotations
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
-from sa2schema import AttributeType, sa_model_info
+from sa2schema import field_filters
+from sa2schema import sa_model_info
 from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
 from sa2schema.attribute_info import NOT_PROVIDED
-from sa2schema.sa_extract_info import ExcludeFilterT
 from sa2schema.compat import get_origin, get_args
-from sa2schema import field_filters
-
-from .base_model import SAModel
+from sa2schema.defs import AttributeType
 from .annotations import ModelT, SAModelT, FilterT, FilterFunctionT, ModelNameMakerT, ModelNameMakerFunction
+from .base_model import SAModel
 
 
 def sa_model(Model: Type[SAModelT],
@@ -26,7 +25,7 @@ def sa_model(Model: Type[SAModelT],
              make_optional: FilterT = False,
              only_readable: bool = False,
              only_writable: bool = False,
-             exclude: ExcludeFilterT = (),
+             exclude: FilterT = (),
              naming: Optional[ModelNameMakerT] = None
              ) -> Type[BaseModel]:
     """ Create a Pydantic model from an SqlAlchemy model
@@ -99,7 +98,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
                     make_optional: FilterFunctionT,
                     only_readable: bool = False,
                     only_writable: bool = False,
-                    exclude: ExcludeFilterT = (),
+                    exclude: FilterT = (),
                     can_omit_nullable: bool = True,
                     naming: ModelNameMakerFunction,
                     ) -> Dict[str, Tuple[type, Field]]:
