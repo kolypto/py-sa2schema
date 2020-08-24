@@ -7,11 +7,11 @@ Examples:
 
 from __future__ import annotations
 
-from typing import Set, Union, Callable, Iterable
+from typing import Set, Callable, Iterable
 
 import sa2schema
+from sa2schema.annotations import FilterT, FilterFunctionT, SAModelT
 from sa2schema.defs import AttributeType
-from sa2schema.annotations import FilterT, FilterFunctionT, SAModelT, SAAttributeType
 
 
 class FieldFilterBase:
@@ -25,7 +25,7 @@ class FieldFilterBase:
         """ Bind the filter function to a model """
         self.Model = Model
 
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         """ Filter function itself """
         raise NotImplementedError
 
@@ -43,7 +43,7 @@ class PRIMARY_KEY(FieldFilterBase):
         super().for_model(Model)
         self.primary_key_names = set(sa2schema.sa_model_primary_key_names(Model))
 
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         return name in self.primary_key_names
 
 
@@ -54,7 +54,7 @@ class ALL_BUT_PRIMARY_KEY(PRIMARY_KEY):
         exclude=ALL_BUT_PRIMARY_KEY()
         make_optional=ALL_BUT_PRIMARY_KEY()
     """
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         return name not in self.primary_key_names
 
 
@@ -68,7 +68,7 @@ class READABLE(FieldFilterBase):
         super().for_model(Model)
         self.model_info = sa2schema.sa_model_info(Model, types=AttributeType.ALL)
 
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         return self.model_info[name].readable
 
 
@@ -78,7 +78,7 @@ class WRITABLE(READABLE):
     Example:
         exclude=WRITABLE
     """
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         return self.model_info[name].writable
 
 
@@ -88,7 +88,7 @@ class NULLABLE(READABLE):
     Example:
         exclude=NULLABLE
     """
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         return self.model_info[name].nullable
 
 
@@ -108,7 +108,7 @@ class BY_TYPE(FieldFilterBase):
         super().for_model(Model)
         self.model_info = sa2schema.sa_model_info(Model, types=self.types, exclude=self.exclude)
 
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         # `model_info` already
         return name in self.model_info
 
@@ -134,9 +134,9 @@ class EITHER(FieldFilterBase):
             for filter in self.filters
         ]
 
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         return any(
-            filter(name, attribute)
+            filter(name)
             for filter in self.prepared_filters
         )
 
@@ -149,9 +149,9 @@ class AND(EITHER):
     Examples:
         exclude=AND()
     """
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+    def __call__(self, name: str) -> bool:
         return all(
-            filter(name, attribute)
+            filter(name)
             for filter in self.prepared_filters
         )
 
@@ -164,12 +164,8 @@ class NOT(AND):
     Examples:
         exclude=NOT(['password'])
     """
-    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
-        return not super().__call__(name, attribute)
-
-
-
-
+    def __call__(self, name: str) -> bool:
+        return not super().__call__(name)
 
 
 
@@ -177,16 +173,16 @@ def prepare_filter_function(filter: FilterT, Model: SAModelT) -> FilterFunctionT
     """ Convert the input to a proper filtering function
 
     * bool: becomes an all-matching or all-missing function
-    * list of attribute names or attributes themselves
+    * list of attribute names
     * callable: used as is: callable(attribute-name, attribute)
     * FieldFilterBase: used as a filter
     """
     # True
     if filter is True:
-        return lambda name, attr: True
+        return lambda name: True
     # False, None
     elif filter is None or filter is False:
-        return lambda name, attr: False
+        return lambda name: False
     # FieldFilterBase()
     elif isinstance(filter, FieldFilterBase):
         filter.for_model(Model)
@@ -196,51 +192,12 @@ def prepare_filter_function(filter: FilterT, Model: SAModelT) -> FilterFunctionT
         return prepare_filter_function(filter(), Model)
     # Iterable
     elif isinstance(filter, Iterable):
-        columns = ColumnsAndColumnNames(filter)
-        return lambda name, attr: name in columns or attr in columns
+        column_names = set(filter)
+        return lambda name: name in column_names
     # Callable
     elif isinstance(filter, Callable):
         return filter
     # WAT?
     else:
         raise ValueError(filter)
-
-
-class ColumnsAndColumnNames:
-    """ A container that's able to handle both columns and column names, yet separately.
-
-    Works both for columns, @property, and whatnot.
-
-    Example:
-        columns = ColumnsAndColumnNames(['name', User.age])
-
-        'name' in columns  # -> True
-        User.name in columns  # -> False
-
-        'age' in columns  # -> False
-        User.age in columns  # -> True
-    """
-    __slots__ = ('column_hashes', 'column_names')
-
-    def __init__(self, items: Iterable[Union[str, SAAttributeType]]):
-        column_names = []
-        columns = []
-
-        # Tell columns & names apart
-        for item in items:
-            if isinstance(item, str):
-                column_names.append(item)
-            else:
-                columns.append(item)
-
-        # Get ready
-        self.column_hashes = frozenset(id(column) for column in columns)
-        self.column_names = frozenset(column_names)
-
-    def __contains__(self, item: Union[str, SAAttributeType]):
-        if isinstance(item, str):
-            return item in self.column_names
-        else:
-            return id(item) in self.column_hashes
-
 

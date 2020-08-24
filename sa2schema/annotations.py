@@ -22,9 +22,9 @@ ModelT = TypeVar('ModelT', bound=Type[BaseModel])
 
 
 # A filter function that decides whether a certain field matches
-# function(field-name, attribute-object) -> bool
+# function(field-name) -> bool
 # return `True` to match a field, `False` to miss it.
-FilterFunctionT = Callable[[str, SAAttributeType], bool]
+FilterFunctionT = Callable[[str], bool]
 
 # Field filter:
 # * bool

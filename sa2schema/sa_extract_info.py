@@ -24,8 +24,8 @@ def sa_model_info(Model: DeclarativeMeta, *,
     Args:
         Model: the model to extract the info about
         types: AttributeType types to inspect
-        exclude: the list of fields to ignore, or a filter(name, attribute) to exclude fields dynamically.
-            See also: sa2schema.field_filters for useful presets
+        exclude: the list of fields to ignore, or a filter(name) to exclude fields dynamically.
+            See also: sa2schema.filters for useful presets
     Returns:
         dict: Attribute names mapped to attribute info objects
     """
@@ -45,7 +45,7 @@ def sa_model_info(Model: DeclarativeMeta, *,
         name: InfoClass.extract(attribute)
         for name, attribute in all_sqlalchemy_model_attributes(Model).items()
         for InfoClass in info_classes
-        if not exclude(name, attribute) and InfoClass.matches(attribute, types)
+        if not exclude(name) and InfoClass.matches(attribute, types)
     }
 
 

@@ -26,8 +26,7 @@ def test_sa_model_User_columns():
     """ User: COLUMN """
     # Test User: only columns
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.COLUMN,
-                                    # Test exclusion by both name and column
-                                    exclude=('int', User.json_attr))
+                                    exclude=('int', 'json_attr'))
     assert schema_attrs(pd_User) == {
        'annotated_int': {'type': int, 'default': None, 'required': True},  # override from annotation!
         # note: `type` is always unwrappe by Pydantic. There never is `Optional[]` around it
@@ -804,7 +803,7 @@ def test_plain_recursion():
 
 def test_User_from_orm_instance_with_relationships():
     """ Use sa_model().from_orm() with relationships """
-    user_exclude = lambda name, attr: name not in ('articles_list',)
+    user_exclude = lambda name: name not in ('articles_list',)
 
     # === Test: Models
     # make the namespace

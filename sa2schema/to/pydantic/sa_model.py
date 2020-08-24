@@ -48,11 +48,11 @@ def sa_model(Model: Type[SAModelT],
             Be sure to set it when you use relationships! Weird errors may result if you don't.
         types: attribute types to include. See AttributeType
         make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
-            or a function(name, attribute) to select specific optional fields.
-            See also: sa2schema.field_filters for useful presets
+            or a function(name) to select specific optional fields.
+            See also: sa2schema.filters for useful presets
         only_readable: only include fields that are readable. Useful for output models.
         only_writable: only include fields that are writable. Useful for input models.
-        exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
+        exclude: a list of fields/field names to ignore, or a filter(name) to exclude fields dynamically
         naming: naming pattern for models. Used to resolve forward references. One of:
             A string: something like '{model}Db', '{model}Input', '{model}Response'
             A callable(Model) to generate custom ForwardRef objects
@@ -111,7 +111,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
     Args:
         Model: the model to generate fields from
         types: attribute types to include. See AttributeType
-        make_optional: a function(name, attribute) that selects fields to make Optional[]
+        make_optional: a function(name)->bool that selects fields to make Optional[]
         only_readable: only include fields that are readable
         only_writable: only include fields that are writable
         exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
@@ -129,7 +129,7 @@ def sa_model_fields(Model: DeclarativeMeta, *,
     return {
         name: (
             # Field type
-            pydantic_field_type(name, info, model_annotations, make_optional(name, info.attribute), naming),
+            pydantic_field_type(name, info, model_annotations, make_optional(name), naming),
             # Field() object
             make_field(info, can_omit_nullable=can_omit_nullable),
         )

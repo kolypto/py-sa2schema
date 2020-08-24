@@ -52,7 +52,7 @@ class Models:
             types: attribute types to include. See AttributeType
             Base: base Pydantic model to use. Can also use it to provide Config class
             make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
-                            or a function(name, attribute) to select specific optional fields
+                            or a function(name) to select specific optional fields
                             Special case: `ALL_BUT_PRIMARY_KEY` will make all fields optional except for the primary key
             only_readable: only include fields that are readable. Useful for output models.
             only_writable: only include fields that are writable. Useful for input models.
