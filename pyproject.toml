@@ -19,3 +19,9 @@ pytest-cov = "^2.10.0"
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests/",
+]
+
