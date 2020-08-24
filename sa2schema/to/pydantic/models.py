@@ -8,7 +8,7 @@ from typing import Type, Optional, Mapping, Union
 
 from sa2schema import AttributeType
 from sa2schema.sa_extract_info import ExcludeFilterT
-from .annotations import ModelT, SAModelT, ModelNameMakerT, MakeOptionalFilterT
+from .annotations import ModelT, SAModelT, ModelNameMakerT, FilterT
 from .base_model import SAModel
 from .sa_model import sa_model
 
@@ -42,7 +42,7 @@ class Models:
                  *,
                  types: AttributeType = AttributeType.COLUMN,
                  Base: Type[ModelT] = SAModel,
-                 make_optional: MakeOptionalFilterT = False,
+                 make_optional: FilterT = False,
                  only_readable: bool = False,
                  only_writable: bool = False,
                  ):

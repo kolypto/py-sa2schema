@@ -16,12 +16,11 @@ Subclass AttributeType and provide that a flag for your library. This might work
 
 from __future__ import annotations
 
-from copy import copy
 from contextlib import suppress
+from copy import copy
 from dataclasses import dataclass
-from typing import get_type_hints, ForwardRef, Tuple
 from typing import Any, Optional, Union, Callable, Iterable, TypeVar, Type, List, Set, Dict
-from .compat import Literal, get_args, get_origin
+from typing import get_type_hints, ForwardRef, Tuple
 
 from pydantic.utils import lenient_issubclass
 from sqlalchemy import Column, ColumnDefault
@@ -37,16 +36,14 @@ from sqlalchemy.sql.elements import Label
 from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.util import symbol
 
+from .annotations import SAAttributeType
+from .compat import Literal, get_args, get_origin
 from .defs import AttributeType
 from .property import get_property_loads_attribute_names
-
 
 # Value not provided (e.g. `default` value)
 NOT_PROVIDED = symbol('NOT_PROVIDED')
 
-
-# Type for SqlAlchemy attributes
-SAAttributeType = Union[InstrumentedAttribute, QueryableAttribute, property, hybrid_property]
 
 
 # AttributeInfo type variable

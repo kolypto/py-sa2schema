@@ -3,7 +3,8 @@ __version__ = pkg_resources.get_distribution('sa2schema').version
 
 
 from .defs import AttributeType
-from .attribute_info import SAAttributeType
+from .annotations import SAAttributeType
+from .field_filters import PRIMARY_KEY, ALL_BUT_PRIMARY_KEY
 
 from .sa_extract_info import sa_model_info, sa_attribute_info
 from .sa_extract_info import sa_model_primary_key_names, sa_model_primary_key_info

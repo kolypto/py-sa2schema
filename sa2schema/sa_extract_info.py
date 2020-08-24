@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Union, Callable, Mapping, Dict, Iterable, Sequence
+from typing import Union, Callable, Mapping, Dict, Iterable, Sequence, Tuple
 
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.orm import class_mapper, Mapper
 
+from . import field_filters
 from .attribute_info import AttributeInfo, SAAttributeType
 from .defs import AttributeType
-
 
 # A filter function that decides whether to exclude a certain field.
 # function(field-name, attribute-object) -> bool
@@ -44,7 +44,7 @@ def sa_model_info(Model: DeclarativeMeta, *,
     ]
 
     # Filter fields callable
-    exclude = _prepare_exclude_function(exclude)
+    exclude = field_filters.prepare_filter_function(exclude, Model)
 
     # Apply InfoClasses' extraction to every attribute
     # If there is any weird attribute that is not supported, it is silently ignored.
@@ -56,6 +56,7 @@ def sa_model_info(Model: DeclarativeMeta, *,
     }
 
 
+@lru_cache(typed=True)
 def sa_model_primary_key_names(Model: DeclarativeMeta) -> Tuple[str]:
     """ Get the list of primary key attribute names """
     return tuple(c.key for c in class_mapper(Model).primary_key)
@@ -70,6 +71,7 @@ def sa_model_primary_key_info(Model: DeclarativeMeta) -> Mapping[str, AttributeI
     }
 
 
+@lru_cache(typed=True)
 def sa_attribute_info(Model: DeclarativeMeta, attribute_name: str) -> AttributeInfo:
     """ Extract info from an individual attribute """
     # Get the attribute
@@ -120,46 +122,3 @@ def all_sqlalchemy_model_attribute_names(Model: DeclarativeMeta) -> Sequence[str
         if name in mapper.all_orm_descriptors
            or isinstance(prop, property)
     )
-
-
-def _prepare_exclude_function(exclude: ExcludeFilterT) -> ExcludeFilterFunction:
-    """ Convert the `filter` argument into a guaranteed callable """
-    # Callable is ok
-    if isinstance(exclude, Callable):
-        return exclude
-    # A falsy value, like empty tuple
-    elif not exclude:
-        return lambda name, attr: False  # a high-performance shortcut
-    # Iterable: columns / column names
-    elif isinstance(exclude, Iterable):
-        exclude = _ColumnsOrColumnNames(exclude)
-        return lambda name, attr: name in exclude or attr in exclude
-    # Complain
-    else:
-        raise ValueError(exclude)
-
-
-class _ColumnsOrColumnNames:
-    """ A container that's able to store both columns and column names """
-    __slots__ = ('column_hashes', 'column_names')
-
-    def __init__(self, items: Iterable[Union[str, SAAttributeType]]):
-        column_names = []
-        columns = []
-
-        # Tell columns & names apart
-        for item in items:
-            if isinstance(item, str):
-                column_names.append(item)
-            else:
-                columns.append(item)
-
-        # Get ready
-        self.column_hashes = frozenset(id(column) for column in columns)
-        self.column_names = frozenset(column_names)
-
-    def __contains__(self, item: Union[str, SAAttributeType]):
-        if isinstance(item, str):
-            return item in self.column_names
-        else:
-            return id(item) in self.column_hashes

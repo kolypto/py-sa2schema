@@ -2,7 +2,7 @@
 
 
 # Convert SqlAlchemy models to Pydantic models
-from .sa_model import sa_model, ALL_BUT_PRIMARY_KEY
+from .sa_model import sa_model
 
 # Namespace for models that can relate to one another
 from .models import Models
@@ -19,3 +19,4 @@ from .getter_dict import SAGetterDict, SALoadedGetterDict
 # Shortcuts
 import sa2schema  # noqa
 from sa2schema import AttributeType  # noqa
+from sa2schema.field_filters import PRIMARY_KEY, ALL_BUT_PRIMARY_KEY  # noqa

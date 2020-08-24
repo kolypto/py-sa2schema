@@ -1,25 +1,21 @@
 """ sa_model() implementation: converts from SqlAlchemy model to Pydantic model """
 import typing
-from typing import Tuple, Dict, Callable, Type, ForwardRef, Optional, Iterable
+from typing import Tuple, Dict, Callable, Type, ForwardRef, Optional
 
 from pydantic import BaseModel, create_model, Field, Required
 from pydantic.fields import Undefined
 from pydantic.typing import resolve_annotations
-from sqlalchemy import inspect
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
 from sa2schema import AttributeType, sa_model_info
 from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
 from sa2schema.attribute_info import NOT_PROVIDED
-from sa2schema.sa_extract_info import ExcludeFilterT, _ColumnsOrColumnNames
+from sa2schema.sa_extract_info import ExcludeFilterT
 from sa2schema.compat import get_origin, get_args
+from sa2schema import field_filters
 
 from .base_model import SAModel
-from .annotations import ModelT, SAModelT, MakeOptionalFilterT, MakeOptionalFilterFunction, ModelNameMakerT, ModelNameMakerFunction
-
-
-# Make all fields optional except the primary key
-ALL_BUT_PRIMARY_KEY = object()
+from .annotations import ModelT, SAModelT, FilterT, FilterFunctionT, ModelNameMakerT, ModelNameMakerFunction
 
 
 def sa_model(Model: Type[SAModelT],
@@ -27,7 +23,7 @@ def sa_model(Model: Type[SAModelT],
              *,
              module: str = None,
              types: AttributeType = AttributeType.COLUMN,
-             make_optional: MakeOptionalFilterT = False,
+             make_optional: FilterT = False,
              only_readable: bool = False,
              only_writable: bool = False,
              exclude: ExcludeFilterT = (),
@@ -80,7 +76,7 @@ def sa_model(Model: Type[SAModelT],
     naming = _prepare_naming_function(naming)
 
     # make_optional
-    make_optional = _prepare_make_optional_function(make_optional, Model)
+    make_optional = field_filters.prepare_filter_function(make_optional, Model)
 
     # Create the model
     pd_model = create_model(
@@ -100,7 +96,7 @@ def sa_model(Model: Type[SAModelT],
 
 def sa_model_fields(Model: DeclarativeMeta, *,
                     types: AttributeType = AttributeType.COLUMN,
-                    make_optional: MakeOptionalFilterFunction,
+                    make_optional: FilterFunctionT,
                     only_readable: bool = False,
                     only_writable: bool = False,
                     exclude: ExcludeFilterT = (),
@@ -261,27 +257,3 @@ def _prepare_naming_function(naming: Optional[ModelNameMakerT]) -> ModelNameMake
     # Complain
     else:
         raise ValueError(naming)
-
-
-def _prepare_make_optional_function(make_optional: MakeOptionalFilterT, Model: ModelT) -> MakeOptionalFilterFunction:
-    """ Given the `make_optional` argument, convert it into a guaranteed callable """
-    # True, False, None: as is
-    if make_optional is None or make_optional is False:
-        return lambda name, attr: False
-    elif make_optional is True:
-        return lambda name, attr: True
-    # Special case: make all optional but the primary key
-    elif make_optional is ALL_BUT_PRIMARY_KEY:
-        primary_key_names = frozenset(c.key for c in inspect(Model).primary_key)
-        return lambda name, attr: name not in primary_key_names
-    # Callable is ok
-    elif isinstance(make_optional, Callable):
-        return make_optional
-    # Iterable: a list of columns / column names
-    elif isinstance(make_optional, Iterable):
-        make_optional = _ColumnsOrColumnNames(make_optional)
-        return lambda name, attr: name in make_optional or attr in make_optional
-
-    # Complain
-    else:
-        raise ValueError(make_optional)
