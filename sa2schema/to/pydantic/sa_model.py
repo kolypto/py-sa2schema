@@ -7,7 +7,7 @@ from pydantic.fields import Undefined
 from pydantic.typing import resolve_annotations
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
-from sa2schema import field_filters
+from sa2schema import filter
 from sa2schema import sa_model_info
 from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
 from sa2schema.attribute_info import NOT_PROVIDED
@@ -75,7 +75,7 @@ def sa_model(Model: Type[SAModelT],
     naming = _prepare_naming_function(naming)
 
     # make_optional
-    make_optional = field_filters.prepare_filter_function(make_optional, Model)
+    make_optional = filter.prepare_filter_function(make_optional, Model)
 
     # Create the model
     pd_model = create_model(

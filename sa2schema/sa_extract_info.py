@@ -8,13 +8,13 @@ from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.orm import class_mapper, Mapper
 
-from . import field_filters
+from . import filter
 from .annotations import FilterT
 from .attribute_info import AttributeInfo, SAAttributeType
 from .defs import AttributeType
 
 
-@lru_cache(typed=True)  # makes it really, really cheap to inspect models
+@lru_cache(typed=True, maxsize=128)  # makes it really, really cheap to inspect models
 def sa_model_info(Model: DeclarativeMeta, *,
                   types: AttributeType,
                   exclude: FilterT = (),
@@ -37,7 +37,7 @@ def sa_model_info(Model: DeclarativeMeta, *,
     ]
 
     # Filter fields callable
-    exclude = field_filters.prepare_filter_function(exclude, Model)
+    exclude = filter.prepare_filter_function(exclude, Model)
 
     # Apply InfoClasses' extraction to every attribute
     # If there is any weird attribute that is not supported, it is silently ignored.

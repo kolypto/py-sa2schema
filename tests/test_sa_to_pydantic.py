@@ -512,7 +512,7 @@ def test_sa_model_User_make_optional():
     )) == everything_is_nullable
 
     # Partial User, make_optional=ALL_BUT_PRIMARY_KEY
-    pd_User = sa2.pydantic.sa_model(User, make_optional=sa2.ALL_BUT_PRIMARY_KEY)
+    pd_User = sa2.pydantic.sa_model(User, make_optional=sa2.filter.ALL_BUT_PRIMARY_KEY)
 
     assert schema_attrs_extract(pd_User, lambda field: dict(
         required=field.required,

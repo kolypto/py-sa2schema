@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Set, Union, Callable, Iterable
 
 import sa2schema
+from sa2schema.defs import AttributeType
 from sa2schema.annotations import FilterT, FilterFunctionT, SAModelT, SAAttributeType
 
 
@@ -55,6 +56,121 @@ class ALL_BUT_PRIMARY_KEY(PRIMARY_KEY):
     """
     def __call__(self, name: str, attribute: SAAttributeType) -> bool:
         return name not in self.primary_key_names
+
+
+class READABLE(FieldFilterBase):
+    """ A filter that selects only redable attributes
+
+    Example:
+        make_optional=READABLE
+    """
+    def for_model(self, Model: SAModelT):
+        super().for_model(Model)
+        self.model_info = sa2schema.sa_model_info(Model, types=AttributeType.ALL)
+
+    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+        return self.model_info[name].readable
+
+
+class WRITABLE(READABLE):
+    """ A filter that selects only redable attributes
+
+    Example:
+        exclude=WRITABLE
+    """
+    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+        return self.model_info[name].writable
+
+
+class NULLABLE(READABLE):
+    """ A filter that selects only nullable attributes
+
+    Example:
+        exclude=NULLABLE
+    """
+    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+        return self.model_info[name].nullable
+
+
+class BY_TYPE(FieldFilterBase):
+    """ A filter that selects attributes by type AND by names
+
+    NOTE: `attrs` may be a list of names, or another filtering expression
+
+    Example:
+        exclude = BY_TYPE(types=AttributeType.RELATIONSHIP, include=[''])
+    """
+    def __init__(self, *, types: AttributeType, attrs: FilterT = True):
+        self.types = types
+        self.exclude = NOT(attrs)
+
+    def for_model(self, Model: SAModelT):
+        super().for_model(Model)
+        self.model_info = sa2schema.sa_model_info(Model, types=self.types, exclude=self.exclude)
+
+    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+        # `model_info` already
+        return name in self.model_info
+
+
+class EITHER(FieldFilterBase):
+    """ A predicate that composes multiple other filters.
+
+    If any of them matches, the attributes is a match.
+
+    Examples:
+        exclude=EITHER(
+            ['name', 'age'],
+            BY_TYPE(types=AttributeType.RELATIONSHIP)
+        )
+    """
+    def __init__(self, *filters):
+        self.filters = filters
+
+    def for_model(self, Model: SAModelT):
+        super().for_model(Model)
+        self.prepared_filters = [
+            prepare_filter_function(filter, self.Model)
+            for filter in self.filters
+        ]
+
+    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+        return any(
+            filter(name, attribute)
+            for filter in self.prepared_filters
+        )
+
+
+class AND(EITHER):
+    """ A predicate that composes multiple other filters
+
+    An attribute only matches if all filters match.
+
+    Examples:
+        exclude=AND()
+    """
+    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+        return all(
+            filter(name, attribute)
+            for filter in self.prepared_filters
+        )
+
+
+class NOT(AND):
+    """ A predicate that negates another filter
+
+    An attribute only matches if the filter didn't like it
+
+    Examples:
+        exclude=NOT(['password'])
+    """
+    def __call__(self, name: str, attribute: SAAttributeType) -> bool:
+        return not super().__call__(name, attribute)
+
+
+
+
+
 
 
 def prepare_filter_function(filter: FilterT, Model: SAModelT) -> FilterFunctionT:
