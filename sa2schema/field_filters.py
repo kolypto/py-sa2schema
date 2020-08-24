@@ -1,3 +1,10 @@
+""" Filter presets for `exclude` and `make_optional`
+
+Examples:
+    exclude=ALL_BUT_PRIMARY_KEY
+    make_optional=ALL_BUT_PRIMARY_KEY
+"""
+
 from __future__ import annotations
 
 from typing import Set, Union, Callable, Iterable

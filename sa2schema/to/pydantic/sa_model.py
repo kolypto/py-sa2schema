@@ -50,7 +50,7 @@ def sa_model(Model: Type[SAModelT],
         types: attribute types to include. See AttributeType
         make_optional: `True` to make all fields optional, or a list of fields/field names to make optional,
             or a function(name, attribute) to select specific optional fields.
-            Special case: `ALL_BUT_PRIMARY_KEY` will make all fields optional except for the primary key
+            See also: sa2schema.field_filters for useful presets
         only_readable: only include fields that are readable. Useful for output models.
         only_writable: only include fields that are writable. Useful for input models.
         exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically

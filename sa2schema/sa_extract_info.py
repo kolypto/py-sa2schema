@@ -32,7 +32,8 @@ def sa_model_info(Model: DeclarativeMeta, *,
     Args:
         Model: the model to extract the info about
         types: AttributeType types to inspect
-        exclude: the list of fields to ignore, or a filter(name, attribute) to exclude fields dynamically
+        exclude: the list of fields to ignore, or a filter(name, attribute) to exclude fields dynamically.
+            See also: sa2schema.field_filters for useful presets
     Returns:
         dict: Attribute names mapped to attribute info objects
     """
