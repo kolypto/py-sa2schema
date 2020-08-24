@@ -4,13 +4,22 @@ from typing import Type, Iterable
 
 import pydantic as pd
 
+from .annotations import ModelT
 
-def derive_model(model: Type[pd.BaseModel],
+
+def derive_model(model: ModelT,
                  model_name: str,
                  include: Iterable[str] = None,
                  exclude: Iterable[str] = None,
                  ) -> Type[pd.BaseModel]:
-    """ Derive a Pydantic model by including/excluding fields """
+    """ Derive a Pydantic model by including/excluding fields
+
+    Args:
+        model: Pydantic model to derive from
+        model_name: Name for the new model
+        include: The list of fields to include into the resulting model. All the rest will be excluded.
+        exclude: The list of fields to exclude from the resulting model. All the rest will be included.
+    """
     assert bool(include) != bool(exclude), 'Provide `include` or `exclude` but not both'
 
     # Prepare include list
