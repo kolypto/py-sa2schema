@@ -14,12 +14,13 @@ from .attribute_info import AttributeInfo, SAAttributeType
 from .defs import AttributeType
 
 
-@lru_cache(typed=True, maxsize=128)  # makes it really, really cheap to inspect models
 def sa_model_info(Model: DeclarativeMeta, *,
                   types: AttributeType,
                   exclude: FilterT = (),
                   ) -> Mapping[str, AttributeInfo]:
     """ Extract information on every attribute of an SqlAlchemy model
+
+    Note: it's really cheap to use this function because all the underlying information is cached.
 
     Args:
         Model: the model to extract the info about
@@ -29,6 +30,27 @@ def sa_model_info(Model: DeclarativeMeta, *,
     Returns:
         dict: Attribute names mapped to attribute info objects
     """
+    # Get the full model info
+    model_info = _sa_model_info(Model, types)
+
+    # Prepare the filter
+    exclude = filter.prepare_filter_function(exclude, Model)
+
+    # Filter it
+    return {
+        name: attr_info
+        for name, attr_info in model_info.items()
+        if not exclude(name)
+    }
+
+
+@lru_cache(typed=True)  # makes it really, really cheap to inspect models
+def _sa_model_info(Model: DeclarativeMeta, types: AttributeType) -> Mapping[str, AttributeInfo]:
+    """ Get the full information about the model
+
+    This function gets a full, cachable, information about the model's `types` attributes, once.
+    sa_model_info() can then filter it the way it likes, without polluting the cache.
+    """
     # Get a list of all available InfoClasses
     info_classes = [
         InfoClass
@@ -36,16 +58,13 @@ def sa_model_info(Model: DeclarativeMeta, *,
         if InfoClass.extracts() & types  # only enabled types
     ]
 
-    # Filter fields callable
-    exclude = filter.prepare_filter_function(exclude, Model)
-
     # Apply InfoClasses' extraction to every attribute
     # If there is any weird attribute that is not supported, it is silently ignored.
     return {
         name: InfoClass.extract(attribute)
         for name, attribute in all_sqlalchemy_model_attributes(Model).items()
         for InfoClass in info_classes
-        if not exclude(name) and InfoClass.matches(attribute, types)
+        if InfoClass.matches(attribute, types)
     }
 
 
