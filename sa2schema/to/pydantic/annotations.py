@@ -10,7 +10,7 @@ from sa2schema.compat import Literal  # noqa
 
 
 # Pydantic Model class
-ModelT = TypeVar('ModelT', bound=Type[BaseModel])
+PydanticModelT = TypeVar('PydanticModelT', bound=Type[BaseModel])
 
 
 # A model naming maker function(Model)->str

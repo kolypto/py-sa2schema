@@ -4,7 +4,7 @@ from typing import Type, Mapping
 from pydantic import BaseModel, BaseConfig, Extra
 from pydantic.utils import GetterDict
 
-from .annotations import ModelT, SAModelT
+from .annotations import PydanticModelT, SAModelT
 from .base_model_recursion import NoneRecursiveParserMixin
 from .getter_dict import SAGetterDict, SALoadedGetterDict
 
@@ -41,7 +41,7 @@ class SALoadedModel(SAModel):
         getter_dict = SALoadedGetterDict
 
     @classmethod
-    def from_orm(cls: ModelT, obj: SAModelT, pluck: Mapping[str, bool] = None) -> ModelT:
+    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Mapping[str, bool] = None) -> PydanticModelT:
         if pluck:
             raise NotImplementedError  # TODO: implement. How? Perhaps, keep a stack of objects using Session.info?
 

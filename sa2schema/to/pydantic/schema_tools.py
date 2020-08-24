@@ -4,10 +4,10 @@ from typing import Type, Iterable
 
 import pydantic as pd
 
-from .annotations import ModelT
+from .annotations import PydanticModelT
 
 
-def derive_model(model: ModelT,
+def derive_model(model: PydanticModelT,
                  model_name: str,
                  include: Iterable[str] = None,
                  exclude: Iterable[str] = None,

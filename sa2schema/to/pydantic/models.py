@@ -6,7 +6,7 @@ from typing import Type, Optional, Mapping, Union
 from pydantic import BaseModel
 
 from sa2schema import AttributeType
-from .annotations import ModelT, SAModelT, ModelNameMakerT, FilterT
+from .annotations import PydanticModelT, SAModelT, ModelNameMakerT, FilterT
 from .base_model import SAModel
 from .sa_model import sa_model
 
@@ -39,7 +39,7 @@ class Models:
                  naming: ModelNameMakerT = '{model}',
                  *,
                  types: AttributeType = AttributeType.COLUMN,
-                 Base: Type[ModelT] = SAModel,
+                 Base: PydanticModelT = SAModel,
                  make_optional: FilterT = False,
                  only_readable: bool = False,
                  only_writable: bool = False,
@@ -76,7 +76,7 @@ class Models:
 
     def sa_model(self,
                  Model: Type[SAModelT],
-                 Parent: Optional[Type[ModelT]] = None,
+                 Parent: Optional[PydanticModelT] = None,
                  *,
                  types: AttributeType = AttributeType.NONE,
                  exclude: FilterT = (),

@@ -13,12 +13,12 @@ from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeI
 from sa2schema.attribute_info import NOT_PROVIDED
 from sa2schema.compat import get_origin, get_args
 from sa2schema.defs import AttributeType
-from .annotations import ModelT, SAModelT, FilterT, FilterFunctionT, ModelNameMakerT, ModelNameMakerFunction
+from .annotations import PydanticModelT, SAModelT, FilterT, FilterFunctionT, ModelNameMakerT, ModelNameMakerFunction
 from .base_model import SAModel
 
 
 def sa_model(Model: Type[SAModelT],
-             Parent: Type[ModelT] = SAModel,
+             Parent: PydanticModelT = SAModel,
              *,
              module: str = None,
              types: AttributeType = AttributeType.COLUMN,

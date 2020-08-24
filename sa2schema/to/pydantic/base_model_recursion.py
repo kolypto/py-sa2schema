@@ -15,7 +15,7 @@ from typing import Optional, Hashable
 from sqlalchemy.orm.base import instance_state
 from sqlalchemy.orm.state import InstanceState
 
-from .annotations import ModelT, SAModelT
+from .annotations import PydanticModelT, SAModelT
 
 
 class NoneRecursiveParserMixin:
@@ -25,7 +25,7 @@ class NoneRecursiveParserMixin:
     """
 
     @classmethod
-    def from_orm(cls: ModelT, obj: SAModelT) -> 'ModelT':
+    def from_orm(cls: PydanticModelT, obj: SAModelT) -> Optional[PydanticModelT]:
         # Prevent recursive parsing. This is important for every relationship with a backref
         # because SqlAlchemy will typically establish a bi-directional reference, which will read to RecursionError.
         # Our approach is to replace them with None

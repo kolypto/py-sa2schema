@@ -2,7 +2,6 @@
 
 from typing import TypeVar, Union, Callable, Type, Iterable
 
-from pydantic import BaseModel
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
@@ -15,10 +14,6 @@ SAModelT = TypeVar('SAModelT', bound=DeclarativeMeta)
 
 # SqlAlchemy attributes
 SAAttributeType = Union[InstrumentedAttribute, QueryableAttribute, property, hybrid_property, hybrid_method]
-
-
-# Pydantic Model class
-ModelT = TypeVar('ModelT', bound=Type[BaseModel])
 
 
 # A filter function that decides whether a certain field matches
