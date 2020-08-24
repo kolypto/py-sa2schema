@@ -12,9 +12,7 @@ from .sa_extract_info import all_sqlalchemy_model_attributes, all_sqlalchemy_mod
 
 from .property import loads_attributes
 
-# Nice shortcuts for you
-# Use like this:
-#   from sa2schema import sa2
-#   sa2.pydantic.sa_model()
-from . import to as sa_to
-from . import to as sa2
+# Shortcuts:
+# import sa2schema as sa2
+# sa2.pydantic.sa_model()
+from .to import pydantic
