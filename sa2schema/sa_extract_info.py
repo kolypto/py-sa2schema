@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Mapping, Dict, Sequence, Tuple
+from typing import Mapping, Dict, Sequence, Tuple, Type
 
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.declarative import DeclarativeMeta
@@ -66,6 +66,24 @@ def _sa_model_info(Model: DeclarativeMeta, types: AttributeType) -> Mapping[str,
         for InfoClass in info_classes
         if InfoClass.matches(attribute, types)
     }
+
+
+@lru_cache(typed=True)
+def sa_model_attributes_by_type(Model: DeclarativeMeta) -> Mapping[Type[AttributeType], Mapping[str, AttributeInfo]]:
+    """ Get model attributes neatly grouped into categories """
+    # Prepare categories.
+    # They have to be all present, even if this particular model does not have some.
+    attr_by_category = {
+        AttributeInfoClass: dict()
+        for AttributeInfoClass in AttributeInfo.all_implementations()
+    }
+
+    # Categorize
+    for attr_name, attr_info in _sa_model_info(Model, AttributeType.ALL).items():
+        attr_by_category[type(attr_info)][attr_name] = attr_info
+
+    # Done
+    return attr_by_category
 
 
 @lru_cache(typed=True)

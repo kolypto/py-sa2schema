@@ -1,6 +1,7 @@
 from typing import List, Set, Dict, Any, Union
 
 from sa2schema import sa_model_primary_key_names, sa_model_primary_key_info
+from sa2schema import sa_model_attributes_by_type
 from sa2schema import all_sqlalchemy_model_attribute_names
 from sa2schema import sa_model_info, sa_attribute_info, AttributeType
 from sa2schema.attribute_info import (
@@ -435,6 +436,22 @@ def test_sa_model_info_extraction__User():
 
     # Test primary key
     assert sa_model_primary_key_info(User) == {'annotated_int': expected_fields['annotated_int']}
+
+    # Test sa_model_attributes_by_type()
+    attrs_by_type = sa_model_attributes_by_type(User)
+
+    assert set(attrs_by_type) == {
+        type(attr_info) for attr_info in expected_fields.values()
+    }
+
+    assert attrs_by_type == {
+        AttributeInfoType: {
+            attr_name: attr_info
+            for attr_name, attr_info in expected_fields.items()
+            if type(attr_info) == AttributeInfoType  # don't use isinstance() because DynamicLoader will be part of relationship then
+        }
+        for AttributeInfoType in set(attrs_by_type)
+    }
 
 
 def test_sa_model_info_extractin__Article():
