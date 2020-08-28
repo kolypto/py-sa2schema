@@ -1,6 +1,6 @@
 """ Pydantic schema tools """
 
-from typing import Type, Iterable
+from typing import Type, Iterable, Optional
 
 import pydantic as pd
 
@@ -26,8 +26,12 @@ def derive_model(model: PydanticModelT,
     include_fields = set(include) if include else (set(model.__fields__) - set(exclude))
 
     # Fields
+    field: pd.fields.ModelField
     fields = {
-        name: (field.type_, field.field_info)
+        name: (
+            field.type_ if field.required else Optional[field.type_],
+            field.field_info
+        )
         for name, field in model.__fields__.items()
         if name in include_fields
     }
