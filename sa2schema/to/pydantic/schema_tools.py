@@ -1,6 +1,6 @@
 """ Pydantic schema tools """
 
-from typing import Type, Iterable, Optional
+from typing import Type, Iterable, Optional, Mapping, Any
 
 import pydantic as pd
 
@@ -11,6 +11,8 @@ def derive_model(model: PydanticModelT,
                  model_name: str,
                  include: Iterable[str] = None,
                  exclude: Iterable[str] = None,
+                 BaseModel: Optional[PydanticModelT] = None,
+                 extra_fields: Mapping[str, Any] = None,
                  ) -> Type[pd.BaseModel]:
     """ Derive a Pydantic model by including/excluding fields
 
@@ -19,6 +21,8 @@ def derive_model(model: PydanticModelT,
         model_name: Name for the new model
         include: The list of fields to include into the resulting model. All the rest will be excluded.
         exclude: The list of fields to exclude from the resulting model. All the rest will be included.
+        BaseModel: the base to use
+        extra_fields: extra fields to add. They will override existing ones.
     """
     assert bool(include) != bool(exclude), 'Provide `include` or `exclude` but not both'
 
@@ -36,11 +40,16 @@ def derive_model(model: PydanticModelT,
         if name in include_fields
     }
 
+    # Add/override extra fields
+    fields.update(extra_fields or {})
+
     # Derive a model
     return pd.create_model(
         model_name,
-        __config__=model.__config__,
-        # __base__=model,  # NOTE: we do not do inheritance because it picks up the fields from the base model
         __module__=model.__module__,  # will this work?
+        # Use `BaseModel` and its config if provided.
+        # If not, take __config__ from the `model`
+        __config__=None if BaseModel else model.__config__,
+        __base__=BaseModel,
         **fields
     )
