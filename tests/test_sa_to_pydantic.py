@@ -5,6 +5,8 @@ from typing import Any, Dict, Type, Callable, List, Optional, ForwardRef, Set
 from pydantic import BaseModel, ValidationError, VERSION as PYDANTIC_VERSION
 from pydantic.fields import SHAPE_LIST, ModelField
 from pydantic.utils import GetterDict
+import sqlalchemy as sa
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
 from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.base import instance_state
@@ -1178,6 +1180,8 @@ def test_derive_model():
     assert id.required == True
     # Check inheritance
     assert issubclass(SecretAnimal, Animal)
+    # Check json() behavior
+    assert SecretAnimal(id=1).dict() == {'id': 1}
 
 
     # === Test: required/optional/required-optional fields
@@ -1199,6 +1203,31 @@ def test_derive_model():
     assert r.required == True
     assert o.required == False
     assert ro.required == True
+
+
+    # === Test: derive_model() + SALoadedBase
+    Base = declarative_base()
+
+    class AnimalModel(Base):
+        __tablename__ = 'animals'
+        id = sa.Column(sa.Integer, primary_key=True)
+        name = sa.Column(sa.String)
+        age = sa.Column(sa.Integer)
+
+    class AnimalSchema(SALoadedModel):
+        id: int
+        name: Optional[str] = None
+        age: Optional[int] = None
+
+    AgelessAnimalSchema = sa2.pydantic.derive_model(AnimalSchema, 'AgelessAnimal', exclude=('age',))
+
+    # Prepare a partially loaded animal
+    # Only one field is loaded: `id`
+    animal = sa_set_committed_state(AnimalModel(), id=1)
+    # Parent schema: SALoadedModel works
+    assert AnimalSchema.from_orm(animal).dict(exclude_unset=True) == {'id': 1}
+    # Subclass schema: SALoadedModel is inherited!
+    assert AgelessAnimalSchema.from_orm(animal).dict(exclude_unset=True) == {'id': 1}
 
 
 # TODO: test field name conflicts with pydantic (aliasing)
