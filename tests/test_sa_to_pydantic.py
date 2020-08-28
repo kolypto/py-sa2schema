@@ -1170,12 +1170,14 @@ def test_derive_model():
     assert set(Animal.__fields__) == {'id', 'name', 'age'}
 
     # Derive a model
-
     SecretAnimal = sa2.pydantic.derive_model(Animal, 'SecretAnimal', exclude=('name', 'age'))
+    # Check fields
     assert set(SecretAnimal.__fields__) == {'id'}  # only one field left
     id = SecretAnimal.__fields__['id']
     assert id.type_ == int
     assert id.required == True
+    # Check inheritance
+    assert issubclass(SecretAnimal, Animal)
 
 
     # === Test: required/optional/required-optional fields
@@ -1184,21 +1186,19 @@ def test_derive_model():
         o: Optional[int]  # optional
         ro: Optional[int] = ...  # required-optional
 
+    # Check the initial values
     r, o, ro = Animal.__fields__.values()
     assert r.required == True
     assert o.required == False
     assert ro.required == True
 
-    # Derive one
-    # All required/optional fields must stay the same
+    # Derive a model
     SecretAnimal = sa2.pydantic.derive_model(Animal, 'SecretAnimal', include=('r', 'o', 'ro'))
-
+    # All required/optional fields must stay the same
     r, o, ro = SecretAnimal.__fields__.values()
     assert r.required == True
     assert o.required == False
     assert ro.required == True
-
-
 
 
 # TODO: test field name conflicts with pydantic (aliasing)

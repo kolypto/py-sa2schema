@@ -43,13 +43,22 @@ def derive_model(model: PydanticModelT,
     # Add/override extra fields
     fields.update(extra_fields or {})
 
+    # Default: `BaseModel` comes from the model itself
+    if BaseModel is None:
+        # Create an intermediate class to inherit from
+        BaseModel = type(
+            f'{model.__name__}Derived',
+            # Subclass the base model
+            (model,),
+            # Reset the list of fields.
+            # This is necessary so as not to inherit any fields from the base model
+            {'__fields__': ()},
+        )
+
     # Derive a model
     return pd.create_model(
         model_name,
         __module__=model.__module__,  # will this work?
-        # Use `BaseModel` and its config if provided.
-        # If not, take __config__ from the `model`
-        __config__=None if BaseModel else model.__config__,
         __base__=BaseModel,
         **fields
     )
