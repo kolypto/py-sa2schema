@@ -10,7 +10,7 @@ from sa2schema.compat import Literal  # noqa
 
 # SqlAlchemyModel
 SAModelT = TypeVar('SAModelT', bound=DeclarativeMeta)
-
+SAInstanceT = TypeVar('SAInstanceT', bound=object)
 
 # SqlAlchemy attributes
 SAAttributeType = Union[InstrumentedAttribute, QueryableAttribute, property, hybrid_property, hybrid_method]
