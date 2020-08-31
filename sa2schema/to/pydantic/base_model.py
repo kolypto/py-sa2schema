@@ -1,9 +1,10 @@
 """ Implementations of Pydantic BaseModel: for all models that depend on SqlAlchemy """
-from typing import Type, Mapping
+from typing import Type, Optional
 
 from pydantic import BaseModel, BaseConfig, Extra
 from pydantic.utils import GetterDict
 
+from sa2schema.pluck import PluckMap, sa_pluck
 from .annotations import PydanticModelT, SAModelT
 from .base_model_recursion import NoneRecursiveParserMixin
 from .getter_dict import SAGetterDict, SALoadedGetterDict
@@ -29,6 +30,29 @@ class SAModel(NoneRecursiveParserMixin, BaseModel):
         extra = Extra.forbid
 
 
+    @classmethod
+    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None) -> PydanticModelT:
+        """ Create a Pydantic model from an ORM object
+
+        NOTE: this function is most efficient when used with an explicit `pluck` map. See sa_pluck()
+        This is because from_orm() uses a GetterDict wrapper which adds overhead to every unloaded attribute.
+
+        NOTE: it will fail if your model has required fields and `pluck` excludes them.
+        Plucking only works well with partial models.
+
+        Args:
+            obj: The SqlAlchemy instance to create the Pydantic model from
+            pluck: The pluck map. See sa_pluck()
+        """
+        # Best case: pluck map is given
+        if pluck is not None:
+            d = sa_pluck(obj, pluck)
+            return cls.parse_obj(d)
+
+        # super
+        return super().from_orm(obj)
+
+
 class SALoadedModel(SAModel):
     """ Base for SqlAlchemy models that will only return attributes that are already loaded.
 
@@ -41,15 +65,12 @@ class SALoadedModel(SAModel):
         getter_dict = SALoadedGetterDict
 
     @classmethod
-    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Mapping[str, bool] = None) -> PydanticModelT:
-        if pluck:
-            raise NotImplementedError  # TODO: implement. How? Perhaps, keep a stack of objects using Session.info?
-
-        # Convert
-        res = super().from_orm(obj)
+    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None) -> PydanticModelT:
+        res = super().from_orm(obj, pluck)
 
         # Unset unloaded fields
-        if res is not None:
+        # (but don't do it when `pluck` is provided, because such an object will be perfect already)
+        if res is not None and pluck is None:
             # NOTE: SALoadedGetterDict has decided to exclude some fields, but it was unable to update __fields_set__
             # Therefore, we have to do it here.
             # Why we have to do it here? Because GetterDict has no access to the Pydantic model.

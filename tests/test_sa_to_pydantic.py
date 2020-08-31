@@ -586,6 +586,14 @@ def test_sa_model_from_orm_instance():
     assert pdn.dict(exclude_unset=True) == dict(**all_none)
     assert pdl.dict(exclude_unset=True) == dict()  # notice how SALoadedModel removed unloaded attributes
 
+    # Try from_orm() with `pluck`
+    pluckmap = {'id': 1, 'n': 1}
+
+    with pytest.raises(ValidationError):
+        pd_Number.from_orm(n, pluckmap)
+    assert pd_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
+    assert pdl_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
+
 
 
     # === Test: Number(), has no database identity, all values set
@@ -625,6 +633,15 @@ def test_sa_model_from_orm_instance():
     assert pdl.dict() == dict(id=None, **init_fields)
 
 
+    # Try from_orm() with `pluck`
+    pluckmap = {'id': 1, 'n': 1}
+
+    with pytest.raises(ValidationError):
+        pd_Number.from_orm(n, pluckmap)
+    assert pd_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
+    assert pdl_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
+
+
 
     # === Test: Number(), persistent, all fields loaded
     committed_values = dict(id=1, n=None, nd1=None, nd2=None, nd3=None, d1=0, d2=0, d3=0)
@@ -643,6 +660,18 @@ def test_sa_model_from_orm_instance():
 
     pdl: pdl_NumberPartial = pdl_NumberPartial.from_orm(n)
     assert pdl.dict() == committed_values
+
+
+    # Try from_orm() with `pluck`
+    pluckmap = {'id': 1, 'n': 1}
+
+    with pytest.raises(ValidationError):
+        # because `d1` and `d2` got to have a value, but pluck excluded them.
+        # pluck only works well with partial models
+        pd_Number.from_orm(n, pluckmap)
+    assert pd_Number.from_orm(n, {'id': 1, 'd1': 1, 'd2': 1, 'd3': 1}).dict(exclude_unset=True) == {'id': 1, 'd1': 0, 'd2': 0, 'd3': 0}
+    assert pd_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': 1, 'n': None}
+    assert pdl_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': 1, 'n': None}
 
 
 
