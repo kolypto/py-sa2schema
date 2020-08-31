@@ -34,6 +34,8 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap) -> dict:
     * Assumption #2 every relationship in `map` is a nested dict. If not, expect KeyError
     * Assumption #3 all attributes specified in `map` are loaded. If not, expect the N+1 problem
 
+    Benchmark: 1M plucks in 7.8 seconds; down to 5.9 seconds when compiled with Cython
+
     Args:
         map: plucking map: {attribute: 1, relatiopnship: {key: 1, ...})
             Use `1` to include an attribute, dict() to include a relationship, `0` to exclude something

@@ -2,6 +2,10 @@
 # it's a library; no lockfile should be committed
 /poetry.lock
 
+# Cythonized
+/sa2schema/pluck.c
+/sa2schema/pluck.html
+/sa2schema/pluck.*so*
 
 
 # ===[ PYTHON ]=== #
