@@ -1,5 +1,12 @@
 name: Tests
-on: [push, pull_request, release]
+on:
+  # https://help.github.com/en/actions/reference/events-that-trigger-workflows
+  pull_request:
+    types: [ opened, edited, reopened ]
+  release:
+    types: [ prereleased , released ]
+  push:
+    branches: [ master ]
 jobs:
   tests:
     runs-on: ubuntu-latest
