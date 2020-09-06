@@ -88,7 +88,8 @@ class Models:
             Parent: parent Pydantic model to use for for proper inheritance set up.
                 Note that sa_model() won't detect inheritance automatically; you've got to do it yourself!!
             types: more types to add
-            exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
+            exclude: the list of fields to ignore, or a filter(name) to exclude fields dynamically.
+                See also: sa2schema.filters for useful presets
         """
         model = self._sa_model(Model,
                                Parent=Parent or self._base,

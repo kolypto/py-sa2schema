@@ -8,7 +8,7 @@ from .annotations import PydanticModelT
 
 
 def derive_model(model: PydanticModelT,
-                 model_name: str,
+                 model_name: Optional[str] = None,
                  include: Iterable[str] = None,
                  exclude: Iterable[str] = None,
                  BaseModel: Optional[PydanticModelT] = None,
@@ -18,7 +18,7 @@ def derive_model(model: PydanticModelT,
 
     Args:
         model: Pydantic model to derive from
-        model_name: Name for the new model
+        model_name: Name for the new model. None: get from the old model
         include: The list of fields to include into the resulting model. All the rest will be excluded.
         exclude: The list of fields to exclude from the resulting model. All the rest will be included.
         BaseModel: the base to use
@@ -57,7 +57,7 @@ def derive_model(model: PydanticModelT,
 
     # Derive a model
     return pd.create_model(
-        model_name,
+        model_name or model.__name__,
         __module__=model.__module__,  # will this work?
         __base__=BaseModel,
         **fields

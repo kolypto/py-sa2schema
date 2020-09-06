@@ -114,7 +114,8 @@ def sa_model_fields(Model: DeclarativeMeta, *,
         make_optional: a function(name)->bool that selects fields to make Optional[]
         only_readable: only include fields that are readable
         only_writable: only include fields that are writable
-        exclude: a list of fields/field names to ignore, or a filter(name, attribute) to exclude fields dynamically
+        exclude: the list of fields to ignore, or a filter(name) to exclude fields dynamically.
+            See also: sa2schema.filters for useful presets
         can_omit_nullable: `False` to make nullable fields and fields with defaults required.
         naming: optionally, a callable(Model) naming pattern generator. This is required for resolving relationship targets.
             If relationships aren't used, provide some exception thrower.
