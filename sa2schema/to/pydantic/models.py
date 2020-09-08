@@ -47,7 +47,8 @@ class Models:
         """ Create a new group of models, all sharing a common naming pattern, and other attributes
 
         Args:
-            module: The __name__ of the defining module
+            module: The __name__ of the defining module.
+                In fact, it is used by Pydantic as a namespace for related classes to find one another.
             naming: a '{model}Input' naming pattern, or a callable(Model)->str
             types: attribute types to include. See AttributeType
             Base: base Pydantic model to use. Can also use it to provide Config class
