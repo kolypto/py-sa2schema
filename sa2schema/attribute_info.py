@@ -124,6 +124,10 @@ class ColumnInfo(AttributeInfo):
     * default: from Column(default=...)
     * doc: from Column(doc=...)
     """
+
+    primary_key: bool = False
+    foreign_key: bool = False
+
     @staticmethod
     def extracts() -> AttributeType:
         return AttributeType.COLUMN
@@ -154,6 +158,8 @@ class ColumnInfo(AttributeInfo):
         return cls(
             attribute_type=AttributeType.COLUMN,
             attribute=attr,
+            primary_key=attr.primary_key,
+            foreign_key=bool(column.foreign_keys),
             nullable=column.nullable,
             readable=True,
             writable=True,

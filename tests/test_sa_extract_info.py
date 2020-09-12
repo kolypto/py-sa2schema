@@ -74,6 +74,8 @@ def test_sa_model_info_extraction__User():
         '_ignored': ColumnInfo(  # not ignored in sa_model_info() ; ignored in sa_model()
             attribute_type=AttributeType.COLUMN,
             attribute=User._ignored,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,
             readable=True,
             writable=True,
@@ -85,6 +87,8 @@ def test_sa_model_info_extraction__User():
         'annotated_int': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.annotated_int,
+            primary_key=True,
+            foreign_key=False,
             nullable=False,
             readable=True,
             writable=True,
@@ -96,6 +100,8 @@ def test_sa_model_info_extraction__User():
         'int': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.int,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,
             readable=True,
             writable=True,
@@ -107,6 +113,8 @@ def test_sa_model_info_extraction__User():
         'enum': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.enum,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,
             readable=True,
             writable=True,
@@ -118,6 +126,8 @@ def test_sa_model_info_extraction__User():
         'optional': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.optional,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,  # optional
             readable=True,
             writable=True,
@@ -129,6 +139,8 @@ def test_sa_model_info_extraction__User():
         'required': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.required,
+            primary_key=False,
+            foreign_key=False,
             nullable=False,  # required
             readable=True,
             writable=True,
@@ -140,6 +152,8 @@ def test_sa_model_info_extraction__User():
         'default': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.default,
+            primary_key=False,
+            foreign_key=False,
             nullable=False,  # not nullable
             readable=True,
             writable=True,
@@ -151,6 +165,8 @@ def test_sa_model_info_extraction__User():
         'documented': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.documented,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,
             readable=True,
             writable=True,
@@ -162,6 +178,8 @@ def test_sa_model_info_extraction__User():
         'json_attr': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=User.json_attr,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,
             readable=True,
             writable=True,
@@ -461,6 +479,8 @@ def test_sa_model_info_extractin__Article():
         'id': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=Article.id,
+            primary_key=True,
+            foreign_key=False,
             nullable=False,  # primary key
             readable=True,
             writable=True,
@@ -472,6 +492,8 @@ def test_sa_model_info_extractin__Article():
         'user_id': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=Article.user_id,
+            primary_key=False,
+            foreign_key=True,
             nullable=True,
             readable=True,
             writable=True,
@@ -483,6 +505,8 @@ def test_sa_model_info_extractin__Article():
         'title': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=Article.title,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,
             readable=True,
             writable=True,
@@ -528,6 +552,8 @@ def test_sa_model_info_extractin__Number():
     """ Test sa_model_info(Number): test for defaults """
     common_field_info = dict(
         attribute_type=AttributeType.COLUMN,
+        primary_key=False,
+        foreign_key=False,
         readable=True,
         writable=True,
         value_type=int,
@@ -536,13 +562,16 @@ def test_sa_model_info_extractin__Number():
 
     generated_fields = sa_model_info(Number, types=AttributeType.ALL, exclude=())
     expected_fields = {
-        'id': ColumnInfo(
-            attribute=Number.id,
-            nullable=False,  # primary key
-            default=NOT_PROVIDED,  # because not nullable
-            default_factory=None,
-            **common_field_info
-        ),
+        'id': ColumnInfo(**{
+            **common_field_info,
+            **dict(
+                attribute=Number.id,
+                primary_key=True,
+                nullable=False,  # primary key
+                default=NOT_PROVIDED,  # because not nullable
+                default_factory=None,
+            ),
+        }),
         'n': ColumnInfo(
             attribute=Number.n,
             nullable=True,  # nullable
@@ -608,6 +637,8 @@ def test_sa_model_info_extraction__JTI_Company():
         'id': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=JTI_Company.id,
+            primary_key=True,
+            foreign_key=False,
             nullable=False,  # primary key
             readable=True,
             writable=True,
@@ -619,6 +650,8 @@ def test_sa_model_info_extraction__JTI_Company():
         'name': ColumnInfo(
             attribute_type=AttributeType.COLUMN,
             attribute=JTI_Company.name,
+            primary_key=False,
+            foreign_key=False,
             nullable=True,
             readable=True,
             writable=True,
