@@ -8,6 +8,7 @@ nox.options.sessions = ['tests', 'tests_pydantic', 'tests_sqlalchemy']
 @nox.session(python=['3.7', '3.8'])
 def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     """ Run all tests """
+    session.install('poetry')
     session.run('poetry', 'install')
 
     # Specific versions
