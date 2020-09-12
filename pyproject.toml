@@ -12,10 +12,10 @@ sqlalchemy = "^1.3.5"
 pydantic = {version = "^1.5;!=1.6", optional = true}
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
 nox = "^2020.5.24"
-pydantic = {version = "^1.5;!=1.6", extras = ["email"]}
+pytest = "^5.2"
 pytest-cov = "^2.10.0"
+pydantic = {version = "^1.5;!=1.6", extras = ["email"]}
 
 [build-system]
 requires = ["poetry>=0.12", "cython"]
