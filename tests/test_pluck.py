@@ -55,7 +55,7 @@ def test_pluck():
     assert sa2.sa_pluck(u, {'meta': {'a': {'NONDICT': 1}}}) == {'meta': {'a': 1}}  # invalid structure forgiven
 
     # Test: relationship array
-    assert sa2.sa_pluck(u, {'articles': {}}) == {'articles': [{}, {}, {}]}  # strange, but correct
+    assert sa2.sa_pluck(u, {'articles': {}}) == {}  # nothing to pluck, nothing to return
     assert sa2.sa_pluck(u, {'articles': {'id': 1}}) == {'articles': [{'id': 100}, {'id': 101}, {'id': 102}]}
 
     with pytest.raises(AttributeError):

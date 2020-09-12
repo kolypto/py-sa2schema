@@ -58,26 +58,28 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap) -> dict:
     ret = {}
     # For every key in `map`
     for key, include in map.items():
-        # Unless the value is excluded (0, False), include it
-        # Even empty dict()s count.
-        if include != 0:
-            # Get the value anyway
-            value = getattr(instance, key)
+        # Skip excluded elements: (0, False).
+        # Note: empty dicts are still included
+        if not include:
+            continue
 
-            # Relationship
-            if key in relationships:
-                # Scalar relationship
-                if not relationships[key].uselist:
-                    ret[key] = sa_pluck(value, include)
-                # Iterable relationship: list, set
-                else:
-                    ret[key] = [sa_pluck(item, include) for item in value]
-            # JSON
-            elif isinstance(value, dict) and isinstance(include, dict):
-                ret[key] = pluck_dict(value, include)
-            # Not a relationship
+        # Get the value anyway
+        value = getattr(instance, key)
+
+        # Relationship
+        if key in relationships:
+            # Scalar relationship
+            if not relationships[key].uselist:
+                ret[key] = sa_pluck(value, include)
+            # Iterable relationship: list, set. Nested pluck.
             else:
-                ret[key] = value
+                ret[key] = [sa_pluck(item, include) for item in value]
+        # JSON
+        elif isinstance(value, dict) and isinstance(include, dict):
+            ret[key] = pluck_dict(value, include)
+        # Not a relationship
+        else:
+            ret[key] = value
     return ret
 
 
