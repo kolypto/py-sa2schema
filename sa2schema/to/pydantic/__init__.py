@@ -7,7 +7,7 @@ from .sa_model import sa_model
 from .models import Models
 
 # Pydantic Schema Tools
-from .schema_tools import derive_model
+from .schema_tools import derive_model, merge_models
 
 # Base models for Pydantic-SqlAlchemy models
 from .base_model import SAModel, SALoadedModel

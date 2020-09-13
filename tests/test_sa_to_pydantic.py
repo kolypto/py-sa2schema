@@ -1262,6 +1262,21 @@ def test_derive_model():
     assert AgelessAnimalSchema.from_orm(animal).dict(exclude_unset=True) == {'id': 1}
 
 
+def test_merge_models():
+    class A(BaseModel):
+        a: Optional[int]
+        b: List[int]
+
+    class B(BaseModel):
+        c: str
+        d: List[str]
+
+    AB = sa2.pydantic.merge_models('AB', A, B)
+
+    assert set(AB.__fields__) == {'a', 'b', 'c', 'd'}
+    AB(a=None, b=[1,2,3], c='1', d=[5,6,7])
+
+
 # TODO: test field name conflicts with pydantic (aliasing)
 
 
