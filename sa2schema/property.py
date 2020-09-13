@@ -24,8 +24,8 @@ def loads_attributes(*attribute_names: str) -> Callable:
                 return self.age + 100
     """
     def wrapper(fget: SameFunction) -> SameFunction:
-        # TODO: implement some sort of "DEBUG MODE" that will detect when additional, unannounced, attributes are loaded
-        setattr(fget, 'loads_atributes', set(attribute_names))
+        # TODO: analyze function's code and find `self.attr`?
+        setattr(fget, '_loads_attributes', set(attribute_names))
         return fget
     return wrapper
 
@@ -33,7 +33,7 @@ def loads_attributes(*attribute_names: str) -> Callable:
 def get_property_loads_attribute_names(prop: property) -> Optional[Set[str]]:
     """ Get the list of attributes that a property requires """
     try:
-        return prop.fget.loads_atributes
+        return prop.fget._loads_attributes
     except AttributeError:
         return None
 
