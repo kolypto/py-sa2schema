@@ -18,7 +18,7 @@ from .sa_extract_info import all_sqlalchemy_model_attributes, all_sqlalchemy_mod
 from . import filter
 
 # Additional information
-from .property import loads_attributes
+from .property import loads_attributes, loads_attributes_readcode
 
 # Conversion
 from .pluck import sa_pluck

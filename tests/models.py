@@ -10,7 +10,7 @@ from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm.collections import attribute_mapped_collection, mapped_collection
 
-from sa2schema import loads_attributes
+from sa2schema import loads_attributes, loads_attributes_readcode
 
 Base = declarative_base()
 
@@ -70,7 +70,7 @@ class User(Base):
         return 'b'
 
     @property
-    @loads_attributes('documented')  # the only property
+    @loads_attributes_readcode()  # the only property that knows what it loads
     def property_documented(self):
         """ Documented property """
         return self.documented
