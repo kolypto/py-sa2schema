@@ -14,6 +14,7 @@ from sqlalchemy.orm.state import InstanceState
 
 import sa2schema as sa2
 from sa2schema import AttributeType
+from sa2schema import Unloaded
 from sa2schema.to.pydantic import SALoadedModel, SAGetterDict, SALoadedGetterDict
 
 from .models import Base, User, Article, Number, EnumType
@@ -590,9 +591,9 @@ def test_sa_model_from_orm_instance():
     pluckmap = {'id': 1, 'n': 1}
 
     with pytest.raises(ValidationError):
-        pd_Number.from_orm(n, pluckmap)
-    assert pd_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
-    assert pdl_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
+        pd_Number.from_orm(n, pluckmap, Unloaded.NONE)
+    assert pd_NumberPartial.from_orm(n, pluckmap, Unloaded.NONE).dict(exclude_unset=True) == {'id': None, 'n': None}
+    assert pdl_NumberPartial.from_orm(n, pluckmap, Unloaded.NONE).dict(exclude_unset=True) == {'id': None, 'n': None}
 
 
 
@@ -637,9 +638,9 @@ def test_sa_model_from_orm_instance():
     pluckmap = {'id': 1, 'n': 1}
 
     with pytest.raises(ValidationError):
-        pd_Number.from_orm(n, pluckmap)
-    assert pd_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
-    assert pdl_NumberPartial.from_orm(n, pluckmap).dict(exclude_unset=True) == {'id': None, 'n': None}
+        pd_Number.from_orm(n, pluckmap, Unloaded.NONE)
+    assert pd_NumberPartial.from_orm(n, pluckmap, Unloaded.NONE).dict(exclude_unset=True) == {'id': None, 'n': None}
+    assert pdl_NumberPartial.from_orm(n, pluckmap, Unloaded.NONE).dict(exclude_unset=True) == {'id': None, 'n': None}
 
 
 

@@ -43,8 +43,15 @@ def test_pluck():
     assert sa2.sa_pluck(u, {'id': 1, 'name': 1}) == {'id': 17, 'name': 'John'}
 
     # Test: invalid attribute name
+    # NOTE: no error is raised; default value is returned
     with pytest.raises(AttributeError):
-        sa2.sa_pluck(u, {'INVALID': 1})
+        assert sa2.sa_pluck(u, {'INVALID': 1}) == {'INVALID': None}
+
+    with pytest.raises(AttributeError):
+        assert sa2.sa_pluck(u, {'INVALID': 1}, sa2.Unloaded.LAZY) == {'INVALID': None}
+
+    assert sa2.sa_pluck(u, {'INVALID': 1}, sa2.Unloaded.NONE) == {'INVALID': None}
+
 
     # Test: Pluck: JSON attribute. Nested plucks
     assert sa2.sa_pluck(u, {'meta': 1}) == {'meta': {'a': 1, 'b': {'c': 2, 'd': 3}}}  # the whole attr

@@ -14,11 +14,12 @@ Those dictionaries explicitly specify which attributes to load:
 * nested dictionary to specify attributes for a relationship
 * use `1` for a relationship to pluck loaded attributes only
 """
+from enum import Enum
+from functools import lru_cache
 from typing import Mapping, Union
 
-from sqlalchemy.orm import RelationshipProperty
-from sqlalchemy.orm.base import instance_state
-from sqlalchemy.orm.state import InstanceState
+from sqlalchemy.orm import Mapper
+from sqlalchemy.orm.base import instance_dict, class_mapper
 
 from .annotations import SAInstanceT
 
@@ -26,7 +27,25 @@ from .annotations import SAInstanceT
 PluckMap = Mapping[str, Union[int, 'PluckMap']]
 
 
-def sa_pluck(instance: SAInstanceT, map: PluckMap) -> dict:
+class Unloaded(Enum):
+    """ What to do if an attribute is not loaded, but requested to be plucked? """
+    # Fail with an AttributeError.
+    # Ensures that you have preloaded everything.
+    # Recommended for development.
+    FAIL = 0
+
+    # Return `None`.
+    # This is the default SqlAlchemy behavior.
+    NONE = 1
+
+    # Lazy-load the attribute using getattr().
+    # Only works if getattr() actually helps: e.g. with Declarative.
+    # Can be very slow if something's missing.
+    # Recommended for production.
+    LAZY = 2
+
+
+def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded.FAIL) -> dict:
     """ Recursively pluck an SqlAlchemy instance according to `map` into a dict
 
     Someone else has to validate the `map` dict and make sure that:
@@ -39,6 +58,7 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap) -> dict:
     Args:
         map: plucking map: {attribute: 1, relatiopnship: {key: 1, ...})
             Use `1` to include an attribute, dict() to include a relationship, `0` to exclude something
+        unloaded: what to do if an attribute is not loaded
 
     Example:
         from sqlalchemy.orm import joinedload
@@ -51,8 +71,8 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap) -> dict:
              'articles': {'id': 1, 'title': 1}}
         )
     """
-    state: InstanceState = instance_state(instance)
-    relationships: Mapping[str, RelationshipProperty] = state.mapper.relationships
+    dict_ = instance_dict(instance)
+    rel_uses_list = uselist_relationships(type(instance))
 
     # Pluck according to `map`
     ret = {}
@@ -63,17 +83,26 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap) -> dict:
         if not include:
             continue
 
-        # Get the value anyway
-        value = getattr(instance, key)
+        # Get the value
+        if key in dict_:
+            value = dict_[key]
+        elif unloaded == Unloaded.NONE:
+            value = None
+        elif unloaded == Unloaded.FAIL:
+            raise AttributeError(key)
+        elif unloaded == Unloaded.LAZY:
+            getattr(instance, key)
+        else:
+            raise IMPOSSIBLE
 
         # Relationship
-        if key in relationships:
+        if key in rel_uses_list:
             # Scalar relationship
-            if not relationships[key].uselist:
-                ret[key] = sa_pluck(value, include)
+            if not rel_uses_list[key]:
+                ret[key] = sa_pluck(value, include, unloaded)
             # Iterable relationship: list, set. Nested pluck.
             else:
-                ret[key] = [sa_pluck(item, include) for item in value]
+                ret[key] = [sa_pluck(item, include, unloaded) for item in value]
         # JSON
         elif isinstance(value, dict) and isinstance(include, dict):
             ret[key] = pluck_dict(value, include)
@@ -81,6 +110,16 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap) -> dict:
         else:
             ret[key] = value
     return ret
+
+
+@lru_cache(typed=True)
+def uselist_relationships(Model: type) -> Mapping[str, bool]:
+    """ Inspect a model and return a map of {relationship name => uselist} """
+    mapper: Mapper = class_mapper(Model)
+    return {
+        rel.key: rel.uselist
+        for rel in mapper.relationships
+    }
 
 
 def pluck_dict(value: dict, map: PluckMap) -> dict:
@@ -91,7 +130,12 @@ def pluck_dict(value: dict, map: PluckMap) -> dict:
     Forgives missing keys.
     """
     return {
-        key: pluck_dict(value[key], include) if isinstance(include, dict) and isinstance(value[key], dict) else value[key]
+        key: pluck_dict(value[key], include)
+             if isinstance(include, dict) and isinstance(value[key], dict) else
+             value[key]
         for key, include in map.items()
         if include != 0 and key in value
     }
+
+
+IMPOSSIBLE = AssertionError

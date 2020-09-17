@@ -4,7 +4,7 @@ from typing import Type, Optional
 from pydantic import BaseModel, BaseConfig, Extra
 from pydantic.utils import GetterDict
 
-from sa2schema.pluck import PluckMap, sa_pluck
+from sa2schema.pluck import PluckMap, sa_pluck, Unloaded
 from .annotations import PydanticModelT, SAModelT
 from .base_model_recursion import NoneRecursiveParserMixin
 from .getter_dict import SAGetterDict, SALoadedGetterDict
@@ -31,7 +31,7 @@ class SAModel(NoneRecursiveParserMixin, BaseModel):
 
 
     @classmethod
-    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None) -> PydanticModelT:
+    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None, unloaded: Unloaded = Unloaded.FAIL) -> PydanticModelT:
         """ Create a Pydantic model from an ORM object
 
         NOTE: this function is most efficient when used with an explicit `pluck` map. See sa_pluck()
@@ -43,10 +43,11 @@ class SAModel(NoneRecursiveParserMixin, BaseModel):
         Args:
             obj: The SqlAlchemy instance to create the Pydantic model from
             pluck: The pluck map. See sa_pluck()
+            unloaded: Behavior with unloaded attributes. Note that ideally you should have pre-loaded everything you need.
         """
         # Best case: pluck map is given
         if pluck is not None:
-            d = sa_pluck(obj, pluck)
+            d = sa_pluck(obj, pluck, unloaded)
             return cls.parse_obj(d)
 
         # super
@@ -65,8 +66,8 @@ class SALoadedModel(SAModel):
         getter_dict = SALoadedGetterDict
 
     @classmethod
-    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None) -> PydanticModelT:
-        res = super().from_orm(obj, pluck)
+    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None, unloaded: Unloaded = Unloaded.FAIL) -> PydanticModelT:
+        res = super().from_orm(obj, pluck, unloaded)
 
         # Unset unloaded fields
         # (but don't do it when `pluck` is provided, because such an object will be perfect already)
