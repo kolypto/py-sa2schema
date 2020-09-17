@@ -18,7 +18,7 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
         session.install(f'pydantic[email]=={pydantic}')
 
     # Test
-    session.run('pytest', 'tests/', '--cov=sa2schema')
+    session.run('pytest', '-vv', 'tests/', '--cov=sa2schema')
 
 
 @nox.session()
@@ -40,7 +40,7 @@ def tests_pydantic(session, pydantic):
 @nox.parametrize(
     'sqlalchemy',
     [
-        *(f'1.3.{x}' for x in range(5, 1+18)),
+        *(f'1.3.{x}' for x in range(5, 1+19)),
     ]
 )
 def tests_sqlalchemy(session, sqlalchemy):
