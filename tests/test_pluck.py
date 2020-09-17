@@ -62,7 +62,7 @@ def test_pluck():
     assert sa2.sa_pluck(u, {'meta': {'a': {'NONDICT': 1}}}) == {'meta': {'a': 1}}  # invalid structure forgiven
 
     # Test: relationship array
-    assert sa2.sa_pluck(u, {'articles': {}}) == {}  # nothing to pluck, nothing to return
+    assert sa2.sa_pluck(u, {'articles': {}}) == {'articles': []}  # nothing to pluck, nothing to return
     assert sa2.sa_pluck(u, {'articles': {'id': 1}}) == {'articles': [{'id': 100}, {'id': 101}, {'id': 102}]}
 
     with pytest.raises(AttributeError):
@@ -72,3 +72,8 @@ def test_pluck():
     a = u.articles[0]
     assert sa2.sa_pluck(a, {'title': 1}) == {'title': 'Python'}
     assert sa2.sa_pluck(a, {'author': {'id': 1}}) == {'author': {'id': 17}}
+    assert sa2.sa_pluck(a, {'author': {}}) == {'author': {}}
+
+    # Test: relationship has no loaded value
+    u = sa_set_committed_state(User(), id=17, articles=None)
+    assert sa2.sa_pluck(u, {'articles': {'id': 1}}) == {'articles': []}  # skipped

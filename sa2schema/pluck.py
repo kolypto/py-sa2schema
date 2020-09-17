@@ -16,8 +16,9 @@ Those dictionaries explicitly specify which attributes to load:
 """
 from enum import Enum
 from functools import lru_cache
-from typing import Mapping, Union
+from typing import Mapping, Union, Any, Callable
 
+from sqlalchemy.ext.declarative.api import DeclarativeMeta
 from sqlalchemy.orm import Mapper
 from sqlalchemy.orm.base import instance_dict, class_mapper
 
@@ -45,7 +46,15 @@ class Unloaded(Enum):
     LAZY = 2
 
 
-def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded.FAIL) -> dict:
+def pluck_relationship(key: str, uselist: bool, value: Any, map: PluckMap, unloaded: Unloaded, context=None) -> Any:
+    if not uselist:
+        return sa_pluck(value, map, unloaded, relhandler=pluck_relationship, context=context)
+    else:
+        return [sa_pluck(item, map, unloaded, relhandler=pluck_relationship, context=context) for item in value]
+
+
+def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded.FAIL, *,
+             relhandler: Callable = pluck_relationship, context=None) -> dict:
     """ Recursively pluck an SqlAlchemy instance according to `map` into a dict
 
     Someone else has to validate the `map` dict and make sure that:
@@ -80,7 +89,7 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded
     for key, include in map.items():
         # Skip excluded elements: (0, False).
         # Note: empty dicts are still included
-        if not include:
+        if include == 0:
             continue
 
         # Get the value
@@ -88,21 +97,24 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded
             value = dict_[key]
         elif unloaded == Unloaded.NONE:
             value = None
+        elif unloaded == Unloaded.LAZY:
+            value = getattr(instance, key)
         elif unloaded == Unloaded.FAIL:
             raise AttributeError(key)
-        elif unloaded == Unloaded.LAZY:
-            getattr(instance, key)
         else:
             raise IMPOSSIBLE
 
         # Relationship
         if key in rel_uses_list:
-            # Scalar relationship
-            if not rel_uses_list[key]:
-                ret[key] = sa_pluck(value, include, unloaded)
-            # Iterable relationship: list, set. Nested pluck.
+            uselist = rel_uses_list[key]
+            # When a relationship has no loaded value
+            if value is None:
+                ret[key] = [] if uselist else None
+            elif not include and uselist:
+                ret[key] = []
+            # Loaded relationship
             else:
-                ret[key] = [sa_pluck(item, include, unloaded) for item in value]
+                ret[key] = relhandler(key, uselist, value, include, unloaded, context)
         # JSON
         elif isinstance(value, dict) and isinstance(include, dict):
             ret[key] = pluck_dict(value, include)
@@ -112,8 +124,8 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded
     return ret
 
 
-@lru_cache(typed=True)
-def uselist_relationships(Model: type) -> Mapping[str, bool]:
+@lru_cache()
+def uselist_relationships(Model: Union[type, DeclarativeMeta]) -> Mapping[str, bool]:
     """ Inspect a model and return a map of {relationship name => uselist} """
     mapper: Mapper = class_mapper(Model)
     return {

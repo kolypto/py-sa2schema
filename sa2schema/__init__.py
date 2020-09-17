@@ -21,8 +21,7 @@ from .info import filter
 from sa2schema.info.property import loads_attributes, loads_attributes_readcode
 
 # Conversion
-from .pluck import sa_pluck
-from .pluck import Unloaded
+from .pluck import sa_pluck, pluck_dict, Unloaded
 
 # Schemas:
 from .to import pydantic
