@@ -124,6 +124,27 @@ def sa_attribute_info(Model: type, attribute_name: str) -> AttributeInfo:
 def all_sqlalchemy_model_attributes(Model: type) -> Dict[str, SAAttributeType]:
     """ Get all attributes of an SqlAlchemy model (ORM + @property) """
     mapper: Mapper = class_mapper(Model)
+
+    # Initialize dict attributes
+    # This cosmetic change is necessary to make sure that ordering is correct :)
+    all_model_attributes = {
+        attr_name: None
+        for attr_name in vars(Model)
+        if attr_name in mapper.all_orm_descriptors or
+           isinstance(getattr(Model, attr_name), property)
+    }
+
+    # Collect all SqlAlchemy descriptors
+    all_model_attributes.update(mapper.all_orm_descriptors)
+
+    # Add @properties
+    for name in dir(Model):
+        if all_model_attributes.get(name, None) is None:  # missing or uninitialized
+            attr = getattr(Model, name)
+            if isinstance(attr, property):
+                all_model_attributes[name] = attr
+
+    # Create a mapping
     return {
         name: (
             # In some cases, we need to call an actual getattr() to make sure
@@ -134,20 +155,10 @@ def all_sqlalchemy_model_attributes(Model: type) -> Dict[str, SAAttributeType]:
             if isinstance(prop, AssociationProxy) else
             prop
         )
-        # Iterate vars() because then @property attributes will be included.
-        # all_orm_descriptors doesn't have it.
-        for name, prop in list(vars(Model).items())  # list() because it gets modified by descriptors as we iterate
-        if name in mapper.all_orm_descriptors
-           or isinstance(prop, property)}
+        for name, prop in all_model_attributes.items()}
 
 
 @lru_cache(typed=True)
 def all_sqlalchemy_model_attribute_names(Model: type) -> Sequence[str]:
     """ Get all attribute names of an SqlAlchemy model (ORM + @property) """
-    mapper: Mapper = class_mapper(Model)
-    return tuple(
-        name
-        for name, prop in list(vars(Model).items())  # list() because it gets modified by descriptors as we iterate
-        if name in mapper.all_orm_descriptors
-           or isinstance(prop, property)
-    )
+    return tuple(all_sqlalchemy_model_attributes(Model))

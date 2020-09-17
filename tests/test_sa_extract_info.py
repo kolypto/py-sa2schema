@@ -18,6 +18,7 @@ def test_all_sqlalchemy_model_attribute_names():
     """ Test all_sqlalchemy_model_attribute_names() """
     assert sa_model_primary_key_names(User) == ('annotated_int',)
     assert all_sqlalchemy_model_attribute_names(User) == (
+        # Everything in the order it was defined on the class
         '_ignored',
         'annotated_int',
         'int',
@@ -64,6 +65,34 @@ def test_all_sqlalchemy_model_attribute_names():
         'd1',
         'd2',
         'd3',
+    )
+    # Check inherited properties
+
+    Base = declarative_base()
+
+    class A(Base):
+        __tablename__ = 'a'
+        id = sa.Column(sa.Integer, primary_key=True)
+        type = sa.Column(sa.String)
+
+        __mapper_args__ = {
+            'polymorphic_identity': 'a',
+            'polymorphic_on': type
+        }
+
+        @property
+        def number(self):
+            pass
+
+    class B(A):
+        __mapper_args__ = {
+            'polymorphic_identity': 'b',
+        }
+
+    assert all_sqlalchemy_model_attribute_names(B) == (
+        'id', 'type',
+        # Inherited property
+        'number',
     )
 
 
