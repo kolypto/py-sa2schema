@@ -32,10 +32,10 @@ PluckMap = Mapping[str, Union[int, 'PluckMap']]
 
 class Unloaded(Enum):
     """ What to do if an attribute is not loaded, but requested to be plucked? """
-    # Fail with an AttributeError.
+    # Raise an AttributeError.
     # Ensures that you have preloaded everything.
     # Recommended for development.
-    FAIL = 0
+    RAISE = 0
 
     # Return `None`.
     # This is the default SqlAlchemy behavior.
@@ -59,7 +59,7 @@ def pluck_relationship(key: str, uselist: bool, value: Any, map: PluckMap, unloa
         return [sa_pluck(item, map, unloaded, relhandler=pluck_relationship, context=context) for item in value]
 
 
-def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded.FAIL, *,
+def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded.RAISE, *,
              relhandler: Callable = pluck_relationship, context=None) -> dict:
     """ Recursively pluck an SqlAlchemy instance according to `map` into a dict
 
@@ -112,7 +112,7 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded
         elif unloaded == Unloaded.LAZYWARN:
             warnings.warn(f'Lazy loading {key!r} from {instance}')
             value = getattr(instance, key)
-        elif unloaded == Unloaded.FAIL:
+        elif unloaded == Unloaded.RAISE:
             raise AttributeError(key)
         else:
             raise IMPOSSIBLE

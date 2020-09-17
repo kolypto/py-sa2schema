@@ -31,7 +31,7 @@ class SAModel(NoneRecursiveParserMixin, BaseModel):
 
 
     @classmethod
-    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None, unloaded: Unloaded = Unloaded.FAIL) -> PydanticModelT:
+    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None, unloaded: Unloaded = Unloaded.RAISE) -> PydanticModelT:
         """ Create a Pydantic model from an ORM object
 
         NOTE: this function is most efficient when used with an explicit `pluck` map. See sa_pluck()
@@ -66,7 +66,7 @@ class SALoadedModel(SAModel):
         getter_dict = SALoadedGetterDict
 
     @classmethod
-    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None, unloaded: Unloaded = Unloaded.FAIL) -> PydanticModelT:
+    def from_orm(cls: PydanticModelT, obj: SAModelT, pluck: Optional[PluckMap] = None, unloaded: Unloaded = Unloaded.RAISE) -> PydanticModelT:
         res = super().from_orm(obj, pluck, unloaded)
 
         # Unset unloaded fields
