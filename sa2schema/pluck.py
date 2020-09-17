@@ -14,15 +14,17 @@ Those dictionaries explicitly specify which attributes to load:
 * nested dictionary to specify attributes for a relationship
 * use `1` for a relationship to pluck loaded attributes only
 """
+import warnings
 from enum import Enum
 from functools import lru_cache
-from typing import Mapping, Union, Any, Callable
+from typing import Mapping, Union, Any, Callable, FrozenSet
 
 from sqlalchemy.ext.declarative.api import DeclarativeMeta
 from sqlalchemy.orm import Mapper
 from sqlalchemy.orm.base import instance_dict, class_mapper
 
 from .annotations import SAInstanceT
+from .info import sa_model_info, AttributeType
 
 # The dict used for plucking
 PluckMap = Mapping[str, Union[int, 'PluckMap']]
@@ -44,6 +46,10 @@ class Unloaded(Enum):
     # Can be very slow if something's missing.
     # Recommended for production.
     LAZY = 2
+
+    # Lazy-load with a warning
+    # Recommented for soft N+1 problem investigation
+    LAZYWARN = 3
 
 
 def pluck_relationship(key: str, uselist: bool, value: Any, map: PluckMap, unloaded: Unloaded, context=None) -> Any:
@@ -80,8 +86,10 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded
              'articles': {'id': 1, 'title': 1}}
         )
     """
+    Model = type(instance)
+    rel_uses_list = uselist_relationships(Model)
+    descriptors = descriptor_attributes(Model)
     dict_ = instance_dict(instance)
-    rel_uses_list = uselist_relationships(type(instance))
 
     # Pluck according to `map`
     ret = {}
@@ -95,9 +103,14 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded
         # Get the value
         if key in dict_:
             value = dict_[key]
+        elif key in descriptors:
+            value = getattr(instance, key)
         elif unloaded == Unloaded.NONE:
             value = None
         elif unloaded == Unloaded.LAZY:
+            value = getattr(instance, key)
+        elif unloaded == Unloaded.LAZYWARN:
+            warnings.warn(f'Lazy loading {key!r} from {instance}')
             value = getattr(instance, key)
         elif unloaded == Unloaded.FAIL:
             raise AttributeError(key)
@@ -132,6 +145,15 @@ def uselist_relationships(Model: Union[type, DeclarativeMeta]) -> Mapping[str, b
         rel.key: rel.uselist
         for rel in mapper.relationships
     }
+
+
+@lru_cache()
+def descriptor_attributes(Model: Union[type, DeclarativeMeta]) -> FrozenSet[str]:
+    """ Names of descriptor attributes like @property
+
+    These properties can only be plucked using getattr()
+    """
+    return frozenset(sa_model_info(Model, types=AttributeType.ALL_DESCRIPTORS))
 
 
 def pluck_dict(value: dict, map: PluckMap) -> dict:

@@ -19,6 +19,10 @@ def test_pluck():
 
         unloaded = sa.Column(sa.String)
 
+        @property
+        def prop(self):
+            return 'hey'
+
     class Article(Base):
         __tablename__ = 'articles'
         id = sa.Column(sa.Integer, primary_key=True)
@@ -77,3 +81,8 @@ def test_pluck():
     # Test: relationship has no loaded value
     u = sa_set_committed_state(User(), id=17, articles=None)
     assert sa2.sa_pluck(u, {'articles': {'id': 1}}) == {'articles': []}  # skipped
+
+    # Test: @property
+    assert sa2.sa_pluck(u, {'prop': 1}, sa2.Unloaded.NONE) == {'prop': 'hey'}  # value is here, even though not in __dict__
+    assert sa2.sa_pluck(u, {'prop': 1}, sa2.Unloaded.LAZY) == {'prop': 'hey'}  # getattr() works
+    assert sa2.sa_pluck(u, {'prop': 1}, sa2.Unloaded.FAIL) == {'prop': 'hey'}  # works
