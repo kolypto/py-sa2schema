@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union, Callable, Iterable, TypeVar, Type, List, Set, Dict
 from typing import get_type_hints, ForwardRef, Tuple
 
-from pydantic.utils import lenient_issubclass
 from sqlalchemy import Column, ColumnDefault
 from sqlalchemy.ext.associationproxy import AssociationProxyInstance
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
@@ -552,6 +551,9 @@ class AssociationProxyInfo(AttributeInfo):
     # The model the relationship refers to
     target_model: type
 
+    # Target attribute info
+    target_attr_info: AttributeInfo
+
     # Collection class: may be a type, or some sort of callable
     collection_class: Optional[Union[type, Callable]]
 
@@ -565,8 +567,10 @@ class AssociationProxyInfo(AttributeInfo):
 
     @classmethod
     def extract(cls, attr: AssociationProxyInstance) -> AssociationProxyInfo:
-        collection_class = attr.collection_class or dict
-        value_type = get_type_from_sqlalchemy_type(attr.remote_attr.type)
+        # TODO: association proxy as a mapping! not yet supported
+        collection_class = attr.collection_class or list
+        target_attr_info = get_attribute_info(attr.remote_attr)
+        value_type = target_attr_info.value_type
 
         # Wrap with collection class
         target_model = attr.target_class
@@ -579,6 +583,7 @@ class AssociationProxyInfo(AttributeInfo):
             readable=True,
             writable=False,
             value_type=value_type,
+            target_attr_info=target_attr_info,
             target_model=attr.target_class,
             collection_class=collection_class,
             default=NOT_PROVIDED,
@@ -599,10 +604,18 @@ class AssociationProxyInfo(AttributeInfo):
         See: RelationshipInfo.replace_model()
         """
         info = copy(self)
-        value_type = get_type_from_sqlalchemy_type(info.attribute.remote_attr.type)
+        print(self, Model)
         info.target_model = Model
-        _, info.value_type = self._wrap_value_type_with_collection_class(info.target_model, value_type, info.collection_class)
+        _, info.value_type = self._wrap_value_type_with_collection_class(info.target_model, Model, info.collection_class)
         return info
+
+
+def get_attribute_info(attribute: InspectionAttr) -> AttributeInfo:
+    """ Get information about one particular attribute. Slow. Don't use unless cached. """
+    for InfoClass in AttributeInfo.all_implementations():
+        if InfoClass.matches(attribute, AttributeType.ALL):
+            return InfoClass.extract(attribute)
+    raise ValueError(attribute)
 
 
 def is_Optional_type(t: type):
@@ -670,6 +683,11 @@ def wrap_type_into_collection_class(value_type: type, collection_class: Union[ty
         # No idea what type this might be. Something iterable.
         # `collection_class` can be any callable producing miracles
         return None, Union[List[value_type], Dict[Any, value_type]]
+
+
+def lenient_issubclass(cls, class_or_tuple) -> bool:
+    """ issubclass() that tolerates non-types """
+    return isinstance(cls, type) and issubclass(cls, class_or_tuple)
 
 
 Class_T = TypeVar('Class_T')

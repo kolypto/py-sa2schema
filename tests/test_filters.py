@@ -25,7 +25,7 @@ USER_OTHER = {
     'expression', 'point', 'synonym',
 }
 USER_RELS = {
-    'articles_list', 'articles_set', 'articles_dict_attr', 'articles_dict_keyfun', 'article_titles',
+    'articles_list', 'articles_set', 'articles_dict_attr', 'articles_dict_keyfun', 'article_titles', 'article_authors',
     'articles_q'
 }
 USER_ALL_FIELDS = USER_COLUMNS | USER_PROPS | USER_HPROPS | USER_OTHER | USER_RELS
@@ -48,7 +48,7 @@ USER_ALL_FIELDS = USER_COLUMNS | USER_PROPS | USER_HPROPS | USER_OTHER | USER_RE
         (
             sa2.filter.WRITABLE,
             # only non-writable properties left
-            (USER_PROPS | USER_HPROPS | {'article_titles', 'articles_set', 'expression'})
+            (USER_PROPS | USER_HPROPS | {'article_titles', 'article_authors', 'articles_set', 'expression'})
             - {'hybrid_property_writable', 'property_writable'}
         ),
         (

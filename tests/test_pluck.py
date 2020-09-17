@@ -23,6 +23,11 @@ def test_pluck():
         def prop(self):
             return 'hey'
 
+        assprox = sa.ext.associationproxy.association_proxy(
+            'articles',
+            'title'
+        )
+
     class Article(Base):
         __tablename__ = 'articles'
         id = sa.Column(sa.Integer, primary_key=True)
@@ -86,3 +91,6 @@ def test_pluck():
     assert sa2.sa_pluck(u, {'prop': 1}, sa2.Unloaded.NONE) == {'prop': 'hey'}  # value is here, even though not in __dict__
     assert sa2.sa_pluck(u, {'prop': 1}, sa2.Unloaded.LAZY) == {'prop': 'hey'}  # getattr() works
     assert sa2.sa_pluck(u, {'prop': 1}, sa2.Unloaded.RAISE) == {'prop': 'hey'}  # works
+
+    # Test: association proxy (because it's a descriptor)
+    assert sa2.sa_pluck(u, {'assprox': 1}) == {'assprox': []}

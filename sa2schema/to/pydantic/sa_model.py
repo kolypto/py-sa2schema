@@ -172,9 +172,14 @@ def pydantic_field_type(attr_name: str,
                         ) -> type:
     """ Choose a field type for pydantic """
     # For relationships, we use the naming() generator to generate a name, make a ForwardRef, and replace the model
-    if isinstance(attr_info, (RelationshipInfo, AssociationProxyInfo)) and naming:
+    if isinstance(attr_info, RelationshipInfo) and naming:
         attr_info = attr_info.replace_model(
             ForwardRef(naming(attr_info.target_model))
+        )
+    # For association_proxy(), we only have to replace models when they point to them
+    if isinstance(attr_info, AssociationProxyInfo) and isinstance(attr_info.target_attr_info, RelationshipInfo) and naming:
+        attr_info = attr_info.replace_model(
+            ForwardRef(naming(attr_info.target_attr_info.target_model))
         )
     # For composites, we replace them by name, straight.
     if isinstance(attr_info, CompositeInfo):

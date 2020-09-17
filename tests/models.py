@@ -129,6 +129,10 @@ class User(Base):
         'articles_list',
         'title'
     )
+    article_authors = association_proxy(
+        'articles_list',
+        'user',
+    )
 
     # Dynamic loader
     articles_q = sa.orm.dynamic_loader(lambda: Article)

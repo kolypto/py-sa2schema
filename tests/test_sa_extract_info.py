@@ -44,6 +44,7 @@ def test_all_sqlalchemy_model_attribute_names():
         'articles_dict_attr',
         'articles_dict_keyfun',
         'article_titles',
+        'article_authors',
         'articles_q',
     )
 
@@ -409,12 +410,52 @@ def test_sa_model_info_extraction__User():
             nullable=False,  # "yes" when `scalar`
             readable=True,
             writable=False,  # always false
-            value_type=Dict[str, Article],  # dict: target column's type, target model
+            value_type=List[str],  # dict: target column's type, target model
             target_model=Article,
-            collection_class=dict,
+            collection_class=list,
             default=NOT_PROVIDED,
-            default_factory=dict,
+            default_factory=list,
             doc=None,
+            target_attr_info=ColumnInfo(
+                attribute_type=AttributeType.COLUMN,
+                attribute=Article.title,
+                primary_key=False,
+                foreign_key=False,
+                nullable=True,
+                readable=True,
+                writable=True,
+                value_type=str,
+                default=None,
+                default_factory=None,
+                doc=None
+            ),
+        ),
+        'article_authors': AssociationProxyInfo(
+            attribute_type=AttributeType.ASSOCIATION_PROXY,
+            attribute=User.article_authors,
+            nullable=False,
+            readable=True,
+            writable=False,  # always false
+            value_type=List[User],  # dict: target column's type, target model
+            target_model=Article,
+            collection_class=list,
+            default=NOT_PROVIDED,
+            default_factory=list,
+            doc=None,
+            target_attr_info=RelationshipInfo(
+                attribute_type=AttributeType.RELATIONSHIP,
+                attribute=Article.user,
+                nullable=True,
+                readable=True,
+                writable=True,
+                value_type=User,
+                target_model=User,
+                uselist=False,
+                collection_class=None,
+                default=None,
+                default_factory=None,
+                doc=None,
+            ),
         ),
         'articles_q': DynamicLoaderInfo(
             attribute_type=AttributeType.DYNAMIC_LOADER,
@@ -473,7 +514,8 @@ def test_sa_model_info_extraction__User():
         'articles_set': Set[Article],
         'articles_dict_attr': Dict[Any, Article],
         'articles_dict_keyfun': Dict[Any, Article],
-        'article_titles': Dict[str, Article],
+        'article_titles': List[str],
+        'article_authors': List[User],
         'articles_q': List[Article],
     }
 
@@ -819,7 +861,7 @@ def test_sa_model_info_arguments():
     }
 
     assert set(sa_model_info(User, types=AttributeType.ASSOCIATION_PROXY)) == {
-        'article_titles',
+        'article_titles', 'article_authors',
     }
 
     assert set(sa_model_info(User, types=AttributeType.COMPOSITE)) == {

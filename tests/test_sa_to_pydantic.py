@@ -385,7 +385,8 @@ def test_sa_model_User_relationships():
         }
 
     # Test User: association proxy
-    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY, naming='pd_{model}', module=__name__)
+    pd_User = sa2.pydantic.sa_model(User, types=AttributeType.ASSOCIATION_PROXY,
+                                    naming='pd_{model}', module=__name__)
     pd_User.update_forward_refs(**locals())  # manually
 
     if PYDANTIC_VERSION == '1.5':
@@ -393,25 +394,29 @@ def test_sa_model_User_relationships():
         from pydantic.fields import Undefined
         assert schema_attrs(pd_User) == {
             # All references resolved
-            'article_titles': {'type': pd_Article, 'required': False, 'default': Undefined},
+            'article_titles': {'type': str, 'required': False, 'default': Undefined},
+            'article_authors': {'type': pd_User, 'required': False, 'default': Undefined},
         }
     elif PYDANTIC_VERSION == '1.5.1':
         # 1.5.1: 'default' is set to the container type
         assert schema_attrs(pd_User) == {
             # All references resolved
-            'article_titles': {'type': pd_Article, 'required': False, 'default': {}},
+            'article_titles': {'type': str, 'required': False, 'default': []},
+            'article_authors': {'type': pd_User, 'required': False, 'default': []},
         }
     elif PYDANTIC_VERSION == '1.6':
         # 1.6: BUG: nested models aren't resolved
         assert schema_attrs(pd_User) == {
             # All references resolved
-            'article_titles': {'type': Dict[str, ForwardRef('pd_Article')], 'required': False, 'default': None},
+            'article_titles': {'type': List[str], 'required': False, 'default': None},
+            'article_authors': {'type': List[pd_User], 'required': False, 'default': None},
         }
     else:
         # Newer Pydantics has pure types
         assert schema_attrs(pd_User) == {
             # All references resolved
-            'article_titles': {'type': pd_Article, 'required': False, 'default': None},
+            'article_titles': {'type': str, 'required': False, 'default': None},
+            'article_authors': {'type': pd_User, 'required': False, 'default': None},
         }
 
 
