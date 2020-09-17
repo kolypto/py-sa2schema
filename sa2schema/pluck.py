@@ -15,7 +15,7 @@ Those dictionaries explicitly specify which attributes to load:
 * use `1` for a relationship to pluck loaded attributes only
 """
 import warnings
-from enum import Enum
+import enum
 from functools import lru_cache
 from typing import Mapping, Union, Any, Callable, FrozenSet
 
@@ -30,26 +30,31 @@ from .info import sa_model_info, AttributeType
 PluckMap = Mapping[str, Union[int, 'PluckMap']]
 
 
-class Unloaded(Enum):
+@enum.unique
+class Unloaded(enum.Enum):
     """ What to do if an attribute is not loaded, but requested to be plucked? """
     # Raise an AttributeError.
     # Ensures that you have preloaded everything.
     # Recommended for development.
-    RAISE = 0
+    RAISE = enum.auto()
 
     # Return `None`.
     # This is the default SqlAlchemy behavior.
-    NONE = 1
+    NONE = enum.auto()
 
     # Lazy-load the attribute using getattr().
     # Only works if getattr() actually helps: e.g. with Declarative.
     # Can be very slow if something's missing.
     # Recommended for production.
-    LAZY = 2
+    LAZY = enum.auto()
 
     # Lazy-load with a warning
-    # Recommented for soft N+1 problem investigation
-    LAZYWARN = 3
+    # Recommended for soft N+1 problem investigation
+    LAZYWARN = enum.auto()
+
+    # Skip unloaded fields (as if they have not been requested)
+    # Recommended in cases where the UI should notice the difference
+    SKIP = enum.auto()
 
 
 def pluck_relationship(key: str, uselist: bool, value: Any, map: PluckMap, unloaded: Unloaded, context=None) -> Any:
@@ -112,6 +117,8 @@ def sa_pluck(instance: SAInstanceT, map: PluckMap, unloaded: Unloaded = Unloaded
         elif unloaded == Unloaded.LAZYWARN:
             warnings.warn(f'Lazy loading {key!r} from {instance}')
             value = getattr(instance, key)
+        elif unloaded == Unloaded.SKIP:
+            continue
         elif unloaded == Unloaded.RAISE:
             raise AttributeError(key)
         else:
