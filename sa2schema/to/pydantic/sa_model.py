@@ -5,7 +5,6 @@ from typing import Tuple, Dict, Callable, Type, ForwardRef, Optional
 from pydantic import BaseModel, create_model, Field, Required
 from pydantic.fields import Undefined
 from pydantic.typing import resolve_annotations
-from sqlalchemy.ext.declarative import DeclarativeMeta
 
 from sa2schema import filter
 from sa2schema import sa_model_info
@@ -13,6 +12,7 @@ from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeI
 from sa2schema.attribute_info import NOT_PROVIDED
 from sa2schema.compat import get_origin, get_args
 from sa2schema.defs import AttributeType
+from sa2schema.util import is_sa_mapped_class
 from .annotations import PydanticModelT, SAModelT, FilterT, FilterFunctionT, ModelNameMakerT, ModelNameMakerFunction
 from .base_model import SAModel
 
@@ -93,7 +93,7 @@ def sa_model(Model: Type[SAModelT],
     return pd_model
 
 
-def sa_model_fields(Model: DeclarativeMeta, *,
+def sa_model_fields(Model: type, *,
                     types: AttributeType = AttributeType.COLUMN,
                     make_optional: FilterFunctionT,
                     only_readable: bool = False,
@@ -205,7 +205,7 @@ def pydantic_field_type(attr_name: str,
 def _replace_models_with_forward_references(type_: Type, naming: ModelNameMakerFunction) -> Type:
     """ Walk the arguments of `type_` and replace every possible reference to any SqlAlchemy model """
     # SqlAlchemy model
-    if isinstance(type_, DeclarativeMeta):
+    if is_sa_mapped_class(type_):
         return ForwardRef(naming(type_))
     # typing.Optional[], typing.Union[], and other subscriptable types
     elif isinstance(type_, typing._GenericAlias):

@@ -1,15 +1,14 @@
 """ Annotations used here and there """
 
-from typing import TypeVar, Union, Callable, Type, Iterable
+from typing import TypeVar, Union, Callable, Iterable
 
-from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
 
 from sa2schema.compat import Literal  # noqa
 
 # SqlAlchemyModel
-SAModelT = TypeVar('SAModelT', bound=DeclarativeMeta)
+SAModelT = TypeVar('SAModelT', bound=type)
 SAInstanceT = TypeVar('SAInstanceT', bound=object)
 
 # SqlAlchemy attributes

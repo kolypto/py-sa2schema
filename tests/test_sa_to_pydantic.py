@@ -5,6 +5,7 @@ from typing import Any, Dict, Type, Callable, List, Optional, ForwardRef, Set
 from pydantic import BaseModel, ValidationError, VERSION as PYDANTIC_VERSION
 from pydantic.fields import SHAPE_LIST, ModelField
 from pydantic.utils import GetterDict
+import pydantic as v
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
@@ -526,6 +527,21 @@ def test_sa_model_User_make_optional():
         # This is because ALL_BUT_PRIMARY_KEY is used
         'annotated_int': {'allow_none': False, 'required': True},
     }
+
+
+def test_sa_model_detects_models():
+    """ Test that sa_model() knows how to tell mapped & un-mapped models apart """
+    Base = declarative_base()
+
+    class Model(Base):
+        __tablename__ = 'm'
+        id = sa.Column(sa.Integer, primary_key=True)
+        other: v.EmailStr = sa.Column(sa.String)
+
+    # Now, if sa_model() cannot tell mapped entities from unmapped,
+    # it would take `EmailStr` and try to make an EmailStrHey ...
+    pdModel = sa2.pydantic.sa_model(Model, module=__name__, naming='{model}Hey')
+    pdModel.update_forward_refs()  # ... and fail to find it
 
 
 # endregion

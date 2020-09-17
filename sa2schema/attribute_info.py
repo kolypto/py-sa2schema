@@ -25,7 +25,6 @@ from typing import get_type_hints, ForwardRef, Tuple
 from pydantic.utils import lenient_issubclass
 from sqlalchemy import Column, ColumnDefault
 from sqlalchemy.ext.associationproxy import AssociationProxyInstance
-from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm import CompositeProperty, RelationshipProperty, ColumnProperty
 from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
@@ -399,7 +398,7 @@ class RelationshipInfo(AttributeInfo):
     * doc: relationship(doc=)
     """
     # The model the relationship refers to
-    target_model: DeclarativeMeta
+    target_model: type
 
     # Relationship to multiple values
     uselist: bool
@@ -478,7 +477,7 @@ class RelationshipInfo(AttributeInfo):
         else:
             return None, value_type
 
-    def replace_model(self, Model: Union[DeclarativeMeta, ForwardRef, type]) -> RelationshipInfo:
+    def replace_model(self, Model: Union[type, ForwardRef]) -> RelationshipInfo:
         """ Replace the model type with another type.
 
         This is needed by the SqlAlchemy-to-Pydantic converter: you can't just keep referring to SqlAlchemy models
@@ -550,7 +549,7 @@ class AssociationProxyInfo(AttributeInfo):
     * doc: none
     """
     # The model the relationship refers to
-    target_model: DeclarativeMeta
+    target_model: type
 
     # Collection class: may be a type, or some sort of callable
     collection_class: Optional[Union[type, Callable]]
@@ -593,7 +592,7 @@ class AssociationProxyInfo(AttributeInfo):
         else:
             return wrap_type_into_collection_class(value_type, collection_class)
 
-    def replace_model(self, Model: Union[DeclarativeMeta, ForwardRef, type]) -> AssociationProxyInfo:
+    def replace_model(self, Model: Union[ForwardRef, type]) -> AssociationProxyInfo:
         """ Replace the model type with another type.
         
         See: RelationshipInfo.replace_model()

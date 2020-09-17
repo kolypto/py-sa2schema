@@ -2,10 +2,8 @@ import dis
 import inspect
 from functools import lru_cache
 from typing import Set, Callable, Optional, TypeVar, Generator
-from sqlalchemy.ext.declarative import DeclarativeMeta
 
 import sa2schema
-
 
 SameFunction = TypeVar('SameFunction')
 
@@ -73,7 +71,7 @@ def get_property_loads_attribute_names(prop: property) -> Optional[Set[str]]:
 
 
 @lru_cache(typed=True)
-def get_all_safely_loadable_properties(Model: DeclarativeMeta):
+def get_all_safely_loadable_properties(Model: type):
     """ Get all properties with @loads_attributes
 
     Returns:

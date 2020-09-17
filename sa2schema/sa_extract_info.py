@@ -5,7 +5,6 @@ from functools import lru_cache
 from typing import Mapping, Dict, Sequence, Tuple, Type
 
 from sqlalchemy.ext.associationproxy import AssociationProxy
-from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.orm import class_mapper, Mapper
 
 from . import filter
@@ -14,7 +13,7 @@ from .attribute_info import AttributeInfo, SAAttributeType
 from .defs import AttributeType
 
 
-def sa_model_info(Model: DeclarativeMeta, *,
+def sa_model_info(Model: type, *,
                   types: AttributeType,
                   exclude: FilterT = (),
                   ) -> Mapping[str, AttributeInfo]:
@@ -45,7 +44,7 @@ def sa_model_info(Model: DeclarativeMeta, *,
 
 
 @lru_cache(typed=True)  # makes it really, really cheap to inspect models
-def _sa_model_info(Model: DeclarativeMeta, types: AttributeType) -> Mapping[str, AttributeInfo]:
+def _sa_model_info(Model: type, types: AttributeType) -> Mapping[str, AttributeInfo]:
     """ Get the full information about the model
 
     This function gets a full, cachable, information about the model's `types` attributes, once.
@@ -69,7 +68,7 @@ def _sa_model_info(Model: DeclarativeMeta, types: AttributeType) -> Mapping[str,
 
 
 @lru_cache(typed=True)
-def sa_model_attributes_by_type(Model: DeclarativeMeta) -> Mapping[Type[AttributeType], Mapping[str, AttributeInfo]]:
+def sa_model_attributes_by_type(Model: type) -> Mapping[Type[AttributeType], Mapping[str, AttributeInfo]]:
     """ Get model attributes neatly grouped into categories """
     # Prepare categories.
     # They have to be all present, even if this particular model does not have some.
@@ -87,13 +86,13 @@ def sa_model_attributes_by_type(Model: DeclarativeMeta) -> Mapping[Type[Attribut
 
 
 @lru_cache(typed=True)
-def sa_model_primary_key_names(Model: DeclarativeMeta) -> Tuple[str]:
+def sa_model_primary_key_names(Model: type) -> Tuple[str]:
     """ Get the list of primary key attribute names """
     return tuple(c.key for c in class_mapper(Model).primary_key)
 
 
 @lru_cache(typed=True)
-def sa_model_primary_key_info(Model: DeclarativeMeta) -> Mapping[str, AttributeInfo]:
+def sa_model_primary_key_info(Model: type) -> Mapping[str, AttributeInfo]:
     """ Extract information about the primary key of an SqlAlchemy model """
     return {
         attribute_name: sa_attribute_info(Model, attribute_name)
@@ -102,7 +101,7 @@ def sa_model_primary_key_info(Model: DeclarativeMeta) -> Mapping[str, AttributeI
 
 
 @lru_cache(typed=True)
-def sa_attribute_info(Model: DeclarativeMeta, attribute_name: str) -> AttributeInfo:
+def sa_attribute_info(Model: type, attribute_name: str) -> AttributeInfo:
     """ Extract info from an individual attribute """
     # Get the attribute
     # We use this __dict__ workaround to avoid triggering descriptor behaviors
@@ -122,7 +121,7 @@ def sa_attribute_info(Model: DeclarativeMeta, attribute_name: str) -> AttributeI
 
 
 @lru_cache(typed=True)
-def all_sqlalchemy_model_attributes(Model: DeclarativeMeta) -> Dict[str, SAAttributeType]:
+def all_sqlalchemy_model_attributes(Model: type) -> Dict[str, SAAttributeType]:
     """ Get all attributes of an SqlAlchemy model (ORM + @property) """
     mapper: Mapper = class_mapper(Model)
     return {
@@ -143,7 +142,7 @@ def all_sqlalchemy_model_attributes(Model: DeclarativeMeta) -> Dict[str, SAAttri
 
 
 @lru_cache(typed=True)
-def all_sqlalchemy_model_attribute_names(Model: DeclarativeMeta) -> Sequence[str]:
+def all_sqlalchemy_model_attribute_names(Model: type) -> Sequence[str]:
     """ Get all attribute names of an SqlAlchemy model (ORM + @property) """
     mapper: Mapper = class_mapper(Model)
     return tuple(
