@@ -1,10 +1,10 @@
-from typing import List, Set, Dict, Any, Union
+from typing import List, Set, Dict, Any
 
 from sa2schema import sa_model_primary_key_names, sa_model_primary_key_info
 from sa2schema import sa_model_attributes_by_type
 from sa2schema import all_sqlalchemy_model_attribute_names
 from sa2schema import sa_model_info, sa_attribute_info, AttributeType
-from sa2schema.attribute_info import (
+from sa2schema.info.attribute import (
     NOT_PROVIDED,
     ColumnInfo,
     PropertyInfo, HybridPropertyInfo, HybridMethodInfo,

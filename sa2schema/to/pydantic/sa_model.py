@@ -8,10 +8,10 @@ from pydantic.typing import resolve_annotations
 
 from sa2schema import filter
 from sa2schema import sa_model_info
-from sa2schema.attribute_info import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
-from sa2schema.attribute_info import NOT_PROVIDED
+from sa2schema.info.attribute import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
+from sa2schema.info.attribute import NOT_PROVIDED
 from sa2schema.compat import get_origin, get_args
-from sa2schema.defs import AttributeType
+from sa2schema.info.defs import AttributeType
 from sa2schema.util import is_sa_mapped_class
 from .annotations import PydanticModelT, SAModelT, FilterT, FilterFunctionT, ModelNameMakerT, ModelNameMakerFunction
 from .base_model import SAModel

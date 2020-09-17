@@ -7,9 +7,9 @@ from typing import Mapping, Dict, Sequence, Tuple, Type
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.orm import class_mapper, Mapper
 
+from sa2schema.annotations import FilterT
 from . import filter
-from .annotations import FilterT
-from .attribute_info import AttributeInfo, SAAttributeType
+from .attribute import AttributeInfo, SAAttributeType
 from .defs import AttributeType
 
 

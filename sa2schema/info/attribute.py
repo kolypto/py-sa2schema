@@ -35,14 +35,15 @@ from sqlalchemy.sql.elements import Label
 from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.util import symbol
 
-from .annotations import SAAttributeType
-from .compat import Literal, get_args, get_origin
+from sa2schema import SAAttributeType
+from sa2schema.compat import Literal, get_args, get_origin
+from sa2schema.util import get_deep_subclasses
 from .defs import AttributeType
 from .property import get_property_loads_attribute_names
 
+
 # Value not provided (e.g. `default` value)
 NOT_PROVIDED = symbol('NOT_PROVIDED')
-
 
 
 # AttributeInfo type variable
@@ -672,10 +673,3 @@ def wrap_type_into_collection_class(value_type: type, collection_class: Union[ty
 
 
 Class_T = TypeVar('Class_T')
-
-
-def get_deep_subclasses(cls: Type[Class_T]) -> Iterable[Type[Class_T]]:
-    """ Get all subclasses of the given class """
-    for subclass in cls.__subclasses__():
-        yield from get_deep_subclasses(subclass)
-        yield subclass

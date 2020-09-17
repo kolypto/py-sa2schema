@@ -3,7 +3,8 @@ import inspect
 from functools import lru_cache
 from typing import Set, Callable, Optional, TypeVar, Generator
 
-import sa2schema
+import sa2schema as sa2
+from .defs import AttributeType
 
 SameFunction = TypeVar('SameFunction')
 
@@ -77,8 +78,7 @@ def get_all_safely_loadable_properties(Model: type):
     Returns:
         { property-name => set(attribute-names) }
     """
-    all_properties = sa2schema.sa_model_info(Model, types=sa2schema.AttributeType.PROPERTY_R |
-                                                          sa2schema.AttributeType.HYBRID_PROPERTY_R)
+    all_properties = sa2.sa_model_info(Model, types=AttributeType.PROPERTY_R | AttributeType.HYBRID_PROPERTY_R)
     return {
         property_name: property_info.loads_attributes
         for property_name, property_info in all_properties.items()

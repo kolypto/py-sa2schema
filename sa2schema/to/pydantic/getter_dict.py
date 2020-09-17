@@ -6,8 +6,8 @@ from pydantic.utils import GetterDict
 from sqlalchemy.orm.base import instance_state
 from sqlalchemy.orm.state import InstanceState
 
-from sa2schema.property import get_all_safely_loadable_properties
-from sa2schema.sa_extract_info import all_sqlalchemy_model_attribute_names
+from sa2schema.info.property import get_all_safely_loadable_properties
+from sa2schema.info.sa_extract_info import all_sqlalchemy_model_attribute_names
 from sa2schema.util import loaded_attribute_names
 
 

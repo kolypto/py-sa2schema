@@ -18,7 +18,7 @@ from sa2schema import AttributeType
 from sa2schema import Unloaded
 from sa2schema.to.pydantic import SALoadedModel, SAGetterDict, SALoadedGetterDict
 
-from .models import Base, User, Article, Number, EnumType
+from .models import User, Article, Number, EnumType
 from .models import JTI_Employee, JTI_Engineer
 from .models import STI_Employee, STI_Manager, STI_Engineer
 from .lib import sa_set_committed_state

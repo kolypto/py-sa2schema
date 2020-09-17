@@ -1,4 +1,4 @@
-from typing import Set
+from typing import Set, Type, TypeVar, Iterable
 
 from sqlalchemy.orm.base import manager_of_class
 from sqlalchemy.orm.state import InstanceState
@@ -14,3 +14,13 @@ def loaded_attribute_names(state: InstanceState) -> Set[str]:
 def is_sa_mapped_class(class_: type) -> bool:
     """ Tell whether the object is an class mapped by SqlAlchemy, declarative or not """
     return manager_of_class(class_) is not None
+
+
+Class_T = TypeVar('Class_T')
+
+
+def get_deep_subclasses(cls: Type[Class_T]) -> Iterable[Type[Class_T]]:
+    """ Get all subclasses of the given class """
+    for subclass in cls.__subclasses__():
+        yield from get_deep_subclasses(subclass)
+        yield subclass

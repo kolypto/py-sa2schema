@@ -11,7 +11,7 @@ from typing import Set, Callable, Iterable
 
 import sa2schema
 from sa2schema.annotations import FilterT, FilterFunctionT, SAModelT
-from sa2schema.defs import AttributeType
+from .defs import AttributeType
 
 
 class FieldFilterBase:
