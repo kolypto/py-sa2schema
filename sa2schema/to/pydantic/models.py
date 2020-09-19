@@ -15,14 +15,11 @@ class Models:
     """ A container for models that can relate to one another.
 
     For instance, a group of DB models, a group of input models, a group of output models.
+    You can use it as a real namespace and access the models stored within.
 
-    A Namespace() is nothing mode than a partial(sa_model) that feeds the same `module` and `naming`.
+    A Models() namespace is nothing mode than a partial(sa_model) that feeds the same `module` and `naming`.
     This way, every model will have a common model naming pattern and be able to find one another.
-
-    In addition to that, it remembers every model in its internal namespace,
-    through which these forward references are resolved.
-
-    Finally, you can use it as a real namespace and access the models stored within.
+    It also collects them all into a dict() that will be used as a lookup table for update_forward_refs().
 
     Example:
         # schemas.py
