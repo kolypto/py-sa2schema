@@ -8,7 +8,7 @@ from pydantic.typing import resolve_annotations
 
 from sa2schema import filter
 from sa2schema import sa_model_info
-from sa2schema.info.attribute import AttributeInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
+from sa2schema.info.attribute import AttributeInfo, ColumnInfo, RelationshipInfo, CompositeInfo, AssociationProxyInfo
 from sa2schema.info.attribute import NOT_PROVIDED
 from sa2schema.compat import get_origin, get_args
 from sa2schema.info.defs import AttributeType
@@ -126,38 +126,81 @@ def sa_model_fields(Model: type, *,
     model_annotations = getattr(Model, '__annotations__', {})
     model_annotations = resolve_annotations(model_annotations, Model.__module__)
 
-    # Walk attributes and generate Field()s
-    return {
-        name: (
-            # Field type
-            pydantic_field_type(name, info, model_annotations, make_optional(name), naming),
-            # Field() object
-            make_field(info, can_omit_nullable=can_omit_nullable),
-        )
+    # Walk attributes
+    attributes = [
+        (name, info, make_optional(name))
         for name, info in sa_model_info(Model, types=types, exclude=exclude).items()
         if (not only_readable or info.readable) and
            (not only_writable or info.writable) and
            # Hardcoded for now.
            (not name.startswith('_'))  # exclude private properties. Consistent with Pydantic behavior.
+    ]
+
+    # Generate Field()s
+    return {
+        name: (
+            # Field type
+            pydantic_field_type(name, info, model_annotations, made_optional, naming),
+            # Field() object
+            make_field(info, made_optional, can_omit_nullable=can_omit_nullable),
+        )
+        for name, info, made_optional in attributes
     }
 
 
 def make_field(attr_info: AttributeInfo,
+               force_made_optional: bool,
                can_omit_nullable: bool = True,
                ) -> Field:
     """ Create a Pydantic Field() from an AttributeInfo """
 
-    # Pydantic uses `Required = ...` to indicate which nullable fields are required
-    # `Undefined` for nullable fields will result in `None` being the default
-    no_default = Undefined if can_omit_nullable else Required
+    # Pydantic has 3 very confusing behaviors:
+    # default=`Required` (i.e. `...`): a required field with no default; you've got to give a value!
+    # default=`Undefined`: a nullable fields that has `None` as its default
+    # default=<value>: a field that does not have to get a default
+    #
+    # In addition to this, the type of the field may be `Optional[]` or not.
+    # (Optional[type], Required) is a field that you've got to provide even if it's null
+    #
+    # So the matrix is:
+    #       create_model('A', a=(int, Required))                type=int, required=True
+    #       create_model('A', a=(int, Undefined))               type=int, required=True
+    #       create_model('A', a=(int, None))                    type=Optional[int], required=False, default=None
+    #       create_model('A', a=(int, 0))                       type=int, required=False, default=0
+    #   So a non-nullable field: is required, unless a default is provided.
+    #   In this case, `Undefined` is the same as `Required`.
+    #   If the default happens to be `None`, the field is implicitly made nullable.
+    #
+    #       create_model('A', a=(Optional[int], Required))      type=Optional[int], required=True
+    #       create_model('A', a=(Optional[int], Undefined))     type=Optional[int], required=False, default=None
+    #       create_model('A', a=(Optional[int], None))          type=Optional[int], required=False, default=None
+    #       create_model('A', a=(Optional[int], 0))             type=Optional[int], required=False, default=0
+    #   So, a nullable field can always accept None.
+    #   It is not required, unless `Required` is provided.
+    #   In this case, `Undefined` is the same as `None`
+
+    # Therefore, in our case:
+    # * can be required, has a default => use it
+    # * can be required, has no default, nullable => use None (if can skip nullable else) Required
+    # * can be required, has no default, not nullable => Required
+    # * can not be required, has a default => use it
+    # * can not be required, has no default, nullable => use None (if can skip nullable else) Required
+    # * can not be required, has no default, not nullable => None  (e.g. a @property)
+    # * OVERRIDE: if there's a `default_factory`, always use `Undefined`
+    if attr_info.default_factory:
+        default = Undefined
+    elif attr_info.default is not NOT_PROVIDED:
+        default = attr_info.default
+    elif attr_info.nullable or force_made_optional:
+        default = None if can_omit_nullable else Required
+    else:
+        default = Required
 
     # Generate fields
     return Field(
         # Use the default.
         # If no default... it's either optional or required, depending on `can_omit_nullable`
-        default=no_default
-                if attr_info.default is NOT_PROVIDED else
-                attr_info.default,
+        default=default,
         default_factory=attr_info.default_factory,
         alias=None,  # sqlalchemy synonyms are installed later on
         title=attr_info.doc,  # `title` seems fine. `description` can be used for more verbose stuff

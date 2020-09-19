@@ -68,7 +68,7 @@ def test_sa_model_User_properties():
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.PROPERTY_RW)
     assert schema_attrs(pd_User) == {
         'property_without_type': {'type': Any, 'default': None, 'required': False},  # nullable => not required
-        'property_typed': {'type': str, 'default': None, 'required': True},  # not nullable => required
+        'property_typed': {'type': str, 'default': None, 'required': True},  # a property is required because it does not support nulls
         'property_documented': {'type': Any, 'default': None, 'required': False},
         'property_nullable': {'type': str, 'default': None, 'required': False},
         'property_writable': {'type': str, 'default': 'default', 'required': False},  # has a default. Not required.
@@ -107,7 +107,7 @@ def test_sa_model_User_hybrid_properties():
     # Test User: @hybrid_property
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.HYBRID_PROPERTY_RW)
     assert schema_attrs(pd_User) == {
-        'hybrid_property_typed': {'type': str, 'default': None, 'required': True},
+        'hybrid_property_typed': {'type': str, 'default': None, 'required': True},  # a property is required because it does not support nulls
         'hybrid_property_writable': {'type': str, 'default': 'default', 'required': False},  # default value set
     }
 
@@ -505,17 +505,18 @@ def test_sa_model_User_make_optional():
 
     everything_is_nullable = {
        # Everything is nullable and not required
-        'annotated_int': {'allow_none': True, 'required': False},
-       'default': {'allow_none': True, 'required': False},
-       'documented': {'allow_none': True, 'required': False},
-       'enum': {'allow_none': True, 'required': False},
-       'int': {'allow_none': True, 'required': False},
-       'json_attr': {'allow_none': True, 'required': False},
-       'optional': {'allow_none': True, 'required': False},
-       'required': {'allow_none': True, 'required': False},
+        'annotated_int': {'allow_none': True, 'default': None, 'required': False},
+       'default': {'allow_none': True, 'default': 'value', 'required': False},
+       'documented': {'allow_none': True, 'default': None, 'required': False},
+       'enum': {'allow_none': True, 'default': None, 'required': False},
+       'int': {'allow_none': True, 'default': None, 'required': False},
+       'json_attr': {'allow_none': True, 'default': None, 'required': False},
+       'optional': {'allow_none': True, 'default': None, 'required': False},
+       'required': {'allow_none': True, 'default': None, 'required': False},
     }
 
     assert schema_attrs_extract(pd_User, lambda field: dict(
+        default=field.default,
         required=field.required,
         allow_none=field.allow_none,
     )) == everything_is_nullable
@@ -525,12 +526,13 @@ def test_sa_model_User_make_optional():
 
     assert schema_attrs_extract(pd_User, lambda field: dict(
         required=field.required,
+        default=field.default,
         allow_none=field.allow_none,
     )) == {
         **everything_is_nullable,
         # Primary key: required, not nullable
         # This is because ALL_BUT_PRIMARY_KEY is used
-        'annotated_int': {'allow_none': False, 'required': True},
+        'annotated_int': {'allow_none': False, 'default': None, 'required': True},
     }
 
 

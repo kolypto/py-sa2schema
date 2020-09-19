@@ -98,7 +98,7 @@ class BY_TYPE(FieldFilterBase):
     NOTE: `attrs` may be a list of names, or another filtering expression
 
     Example:
-        exclude = BY_TYPE(types=AttributeType.RELATIONSHIP, include=[''])
+        exclude = BY_TYPE(types=AttributeType.RELATIONSHIP, attrs=[''])
     """
     def __init__(self, *, types: AttributeType, attrs: FilterT = True):
         self.types = types
