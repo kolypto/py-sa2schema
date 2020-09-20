@@ -2,6 +2,9 @@
 # it's a library; no lockfile should be committed
 /poetry.lock
 
+# Poetry manages this
+/setup.py
+
 # Cythonized
 /sa2schema/pluck.c
 /sa2schema/pluck.html
