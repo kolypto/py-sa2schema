@@ -10,6 +10,7 @@ except ImportError:
         pass
 # Cython is installed. Compile
 else:
+    import sys
     from setuptools import Extension
     from setuptools.dist import Distribution
     from distutils.command.build_ext import build_ext
@@ -19,6 +20,10 @@ else:
 
     # This function will be executed in setup.py:
     def build(setup_kwargs):
+        # Do nothing if setup.py is doing 'clean' or 'check', or 'SKIP_CYTHON' is explicitly given
+        if 'clean' in sys.argv or 'check' in sys.argv or 'SKIP_CYTHON' in os.environ:
+            return
+
         # The file you want to compile
         extensions = [
             "sa2schema/pluck.py"
