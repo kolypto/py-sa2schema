@@ -3,8 +3,8 @@
 # Convert SqlAlchemy models to Pydantic models
 from .sa_model import sa_model
 
-# Namespace for models that can relate to one another
-from .models import Models
+# Convert SqlAlchemy models that can relate to one another
+from .sa_models import sa_models
 
 # Pydantic Schema Tools
 from .schema_tools import derive_model, merge_models
@@ -18,5 +18,5 @@ from .getter_dict import SAGetterDict, SALoadedGetterDict
 
 # Shortcuts
 # Useful for doing this:
-# from sa2schema.pydantic import Models, sa_model, AttributeType
+# from sa2schema.pydantic import sa_models, sa_model, AttributeType
 from sa2schema import *  # noqa

@@ -128,11 +128,11 @@ now let's make Pydantic models from it:
 ```python
 # schemas.py
 
-from sa2schema.to.pydantic import Models, AttributeType
+from sa2schema.to.pydantic import sa_models, AttributeType
 
 # A _pydantic_names for related models
 # They have to be put "in a box" so that they can find each other
-models_in_db = Models(__name__,
+models_in_db = sa_models(__name__,
                       # Naming convention for our models: "...InDb"
                       # This is required to resolve forward references in Python annotations
                       naming='{model}InDb',
@@ -144,8 +144,8 @@ models_in_db = Models(__name__,
 # Put our models into the namespace
 # Every SqlAlchemy model gets converted into a Pydantic model.
 # They link to one another through a common namespace
-UserInDb = models_in_db.sa_model(models.User)
-ArticleInDb = models_in_db.sa_model(models.Article)
+UserInDb = models_in_db.add(models.User)
+ArticleInDb = models_in_db.add(models.Article)
 
 # Unfortunately, this is required to resolve forward references
 models_in_db.update_forward_refs()
@@ -217,9 +217,9 @@ It will *only touch attributes that are loaded*. Unloaded attributes will be rep
 Let's create some partial models:
 
 ```python
-from sa2schema.to.pydantic import Models, AttributeType, SALoadedModel
+from sa2schema.to.pydantic import sa_models, AttributeType, SALoadedModel
 
-partial = Models(__name__, naming='{model}Partial',
+partial = sa_models(__name__, naming='{model}Partial',
                  # Include columns and relationships
                  types=AttributeType.COLUMN | AttributeType.RELATIONSHIP,
                  # Create a "partial model": make every field Optional[]
@@ -228,8 +228,8 @@ partial = Models(__name__, naming='{model}Partial',
                  Base=SALoadedModel
                  )
 
-partial.sa_model(models.User)
-partial.sa_model(models.Article)
+partial.add(models.User)
+partial.add(models.Article)
 partial.update_forward_refs()
 ```
 

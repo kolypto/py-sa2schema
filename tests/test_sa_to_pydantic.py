@@ -280,11 +280,11 @@ def test_sa_model_User_relationships():
     # the difficult thing is that in a relationship, create_model()
     # has to refer to other models that have not been created yet.
 
-    ns = sa2.pydantic.Models(__name__, 'pd_{model}', types=AttributeType.RELATIONSHIP)
+    ns = sa2.pydantic.sa_models(__name__, 'pd_{model}', types=AttributeType.RELATIONSHIP)
 
     # Test User: relationships
-    pd_User = ns.sa_model(User)
-    pd_Article = ns.sa_model(Article)
+    pd_User = ns.add(User)
+    pd_Article = ns.add(Article)
 
     ns.update_forward_refs()  # got to do it
 
@@ -450,9 +450,9 @@ def test_sa_model_user_relationships_in_annotations():
     #       see `arbitrary_types_allowed` in Config
     # which meant that the annotation wasn't converted into a proper ForwardRef.
     # So in this test, if the error isn't raised, everything went fine
-    models = sa2.pydantic.Models(__name__, types=AttributeType.ALL, naming='{model}Model')
-    models.sa_model(User)
-    models.sa_model(Article)
+    models = sa2.pydantic.sa_models(__name__, types=AttributeType.ALL, naming='{model}Model')
+    models.add(User)
+    models.add(Article)
     models.update_forward_refs()
 
     # Use it: no errors
@@ -863,12 +863,12 @@ def test_User_from_orm_instance_with_relationships():
 
     # === Test: Models
     # make the namespace
-    pd_models = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
-                                    naming='pd_{model}')
-    pd_User = pd_models.sa_model(User, exclude=user_exclude)
-    pd_Article = pd_models.sa_model(Article,
-                                    types=AttributeType.COLUMN,  # also include columns
-                                    )
+    pd_models = sa2.pydantic.sa_models(__name__, types=AttributeType.RELATIONSHIP,
+                                       naming='pd_{model}')
+    pd_User = pd_models.add(User, exclude=user_exclude)
+    pd_Article = pd_models.add(Article,
+                               types=AttributeType.COLUMN,  # also include columns
+                               )
     pd_models.update_forward_refs()
 
     # check that __getattr__() works as advertised
@@ -906,10 +906,10 @@ def test_User_from_orm_instance_with_relationships():
     )
 
     # === Test: Partial models
-    pd_models_partial = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
-                                            naming='pd_{model}Partial', make_optional=True)
-    pd_UserPartial = pd_models_partial.sa_model(User, exclude=user_exclude)
-    pd_ArticlePartial = pd_models_partial.sa_model(Article)
+    pd_models_partial = sa2.pydantic.sa_models(__name__, types=AttributeType.RELATIONSHIP,
+                                               naming='pd_{model}Partial', make_optional=True)
+    pd_UserPartial = pd_models_partial.add(User, exclude=user_exclude)
+    pd_ArticlePartial = pd_models_partial.add(Article)
     pd_models_partial.update_forward_refs()
 
     # User with articles
@@ -927,11 +927,11 @@ def test_User_from_orm_instance_with_relationships():
 
 
     # === Test: Partial models, only loaded
-    pdl_models_partial = sa2.pydantic.Models(__name__, types=AttributeType.RELATIONSHIP,
-                                             naming='pdl_{model}Partial', make_optional=True,
-                                             Base=SALoadedModel)
-    pdl_UserPartial = pdl_models_partial.sa_model(User, exclude=user_exclude)
-    pdl_ArticlePartial = pdl_models_partial.sa_model(Article)
+    pdl_models_partial = sa2.pydantic.sa_models(__name__, types=AttributeType.RELATIONSHIP,
+                                                naming='pdl_{model}Partial', make_optional=True,
+                                                Base=SALoadedModel)
+    pdl_UserPartial = pdl_models_partial.add(User, exclude=user_exclude)
+    pdl_ArticlePartial = pdl_models_partial.add(Article)
     pdl_models_partial.update_forward_refs()
 
     # Make a User with unloaded relationships
@@ -1005,15 +1005,15 @@ def test_with_real_sqlalchemy_session(sqlite_session: Session):
     # Prepare Pydantic models
     # We'll be using partial, only-loaded, models
     # We're interested in relationships (User) and columns (Article)
-    g = sa2.pydantic.Models(__name__,
-                            types=AttributeType.RELATIONSHIP,
-                            naming='pd_{model}Partial',
-                            make_optional=True, Base=SALoadedModel)
+    g = sa2.pydantic.sa_models(__name__,
+                               types=AttributeType.RELATIONSHIP,
+                               naming='pd_{model}Partial',
+                               make_optional=True, Base=SALoadedModel)
 
-    pd_UserPartial = g.sa_model(User)
-    pd_ArticlePartial = g.sa_model(Article,
-                                   types=AttributeType.COLUMN,
-                                   )
+    pd_UserPartial = g.add(User)
+    pd_ArticlePartial = g.add(Article,
+                              types=AttributeType.COLUMN,
+                              )
     g.update_forward_refs()
 
 
