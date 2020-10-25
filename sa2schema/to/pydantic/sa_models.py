@@ -7,9 +7,7 @@ Then, when late binding is done, models find one another through the module's na
 """
 
 from functools import partial
-from typing import Type, Optional, Mapping, Union
-
-from pydantic import BaseModel
+from typing import Type, Optional, Mapping, Union, Iterable
 
 from sa2schema import AttributeType
 from .annotations import PydanticModelT, SAModelT, ModelNameMakerT, FilterT
@@ -73,8 +71,8 @@ class sa_models:
         self._types = types
 
         # remember these models
-        self._original_names: Mapping[str, BaseModel] = {}
-        self._pydantic_names: Mapping[str, BaseModel] = {}
+        self._original_names: Mapping[str, PydanticModelT] = {}
+        self._pydantic_names: Mapping[str, PydanticModelT] = {}
 
     def add(self,
             Model: Type[SAModelT],
@@ -82,7 +80,7 @@ class sa_models:
             *,
             types: AttributeType = AttributeType.NONE,
             exclude: FilterT = (),
-            ) -> Type[BaseModel]:
+            ) -> PydanticModelT:
         """ Add a model to the _pydantic_names
 
         Args:
@@ -106,13 +104,13 @@ class sa_models:
         for model in self._pydantic_names.values():
             model.update_forward_refs(**self._pydantic_names)
 
-    def __getattr__(self, model_name: str) -> BaseModel:
+    def __getattr__(self, model_name: str) -> PydanticModelT:
         """ Get a Pydantic model object by name """
         return self._original_names[model_name]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[PydanticModelT]:
         """ List Pydantic models """
-        return iter(self._original_names)
+        return iter(self._original_names.values())
 
     def __contains__(self, model: Union[str, SAModelT]):
         """ Does this namespace contain the specific model?
