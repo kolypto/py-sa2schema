@@ -1,3 +1,5 @@
+import sys
+from packaging import version
 import nox.sessions
 
 
@@ -32,6 +34,10 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     ]
 )
 def tests_pydantic(session, pydantic):
+    # Don't test pydantic versions <= 1.6.2 because they don't support Python 3.9
+    if sys.version_info >= (3, 9, 0) and version.parse(pydantic) < version.parse('1.6.2'):
+        return
+
     tests(session, pydantic=pydantic)
 
 
