@@ -23,7 +23,7 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     session.run('pytest', '-vv', 'tests/', '--cov=sa2schema')
 
 
-@nox.session()
+@nox.session(python=['3.8'])  # TODO: remove this Python version spec when 3.9 is supported
 @nox.parametrize(
     'pydantic',
     [
@@ -42,7 +42,7 @@ def tests_pydantic(session, pydantic):
 
 
 
-@nox.session()
+@nox.session(python=['3.8'])  # TODO: remove this Python version spec when 3.9 is supported
 @nox.parametrize(
     'sqlalchemy',
     [
