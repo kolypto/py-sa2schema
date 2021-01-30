@@ -32,5 +32,5 @@ jobs:
         key: ${{ runner.os }}-nox-2-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/noxfile.py') }}  # cache key
         restore-keys: |
           ${{ runner.os }}-nox-2-${{ matrix.python-version }}-
-    - run: pip install nox
+    - run: pip install nox packaging
     - run: nox --report nox-report.json
