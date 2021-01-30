@@ -7,7 +7,7 @@ nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ['tests', 'tests_pydantic', 'tests_sqlalchemy']
 
 
-@nox.session(python=['3.7', '3.8'])
+@nox.session(python=['3.7', '3.8', '3.9'])
 def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     """ Run all tests """
     session.install('poetry')
@@ -23,7 +23,7 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
     session.run('pytest', '-vv', 'tests/', '--cov=sa2schema')
 
 
-@nox.session(python=['3.8'])  # TODO: remove this Python version spec when 3.9 is supported
+@nox.session()
 @nox.parametrize(
     'pydantic',
     [
@@ -31,6 +31,10 @@ def tests(session: nox.sessions.Session, sqlalchemy=None, pydantic=None):
         '1.5.1',
         #'1.6', # has a bug
         '1.6.1',
+        '1.7',
+        '1.7.1',
+        '1.7.2',
+        '1.7.3',
     ]
 )
 def tests_pydantic(session, pydantic):
@@ -42,11 +46,11 @@ def tests_pydantic(session, pydantic):
 
 
 
-@nox.session(python=['3.8'])  # TODO: remove this Python version spec when 3.9 is supported
+@nox.session()
 @nox.parametrize(
     'sqlalchemy',
     [
-        *(f'1.3.{x}' for x in range(5, 1+19)),
+        *(f'1.3.{x}' for x in range(5, 1+22)),
     ]
 )
 def tests_sqlalchemy(session, sqlalchemy):

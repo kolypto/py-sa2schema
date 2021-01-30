@@ -1,7 +1,7 @@
 """ Models: container for models that can relate to one another """
 
 from functools import partial
-from typing import Type, Optional, Mapping, Union
+from typing import Type, Optional, Mapping, Union, Iterable
 
 from pydantic import BaseModel
 
@@ -69,8 +69,8 @@ class Models:
         self._types = types
 
         # remember these models
-        self._original_names: Mapping[str, BaseModel] = {}
-        self._pydantic_names: Mapping[str, BaseModel] = {}
+        self._original_names: Mapping[str, PydanticModelT] = {}
+        self._pydantic_names: Mapping[str, PydanticModelT] = {}
 
     def sa_model(self,
                  Model: Type[SAModelT],
@@ -78,7 +78,7 @@ class Models:
                  *,
                  types: AttributeType = AttributeType.NONE,
                  exclude: FilterT = (),
-                 ) -> Type[BaseModel]:
+                 ) -> Type[PydanticModelT]:
         """ Add a model to the _pydantic_names
 
         Args:
@@ -102,13 +102,13 @@ class Models:
         for model in self._pydantic_names.values():
             model.update_forward_refs(**self._pydantic_names)
 
-    def __getattr__(self, model_name: str) -> BaseModel:
+    def __getattr__(self, model_name: str) -> PydanticModelT:
         """ Get a Pydantic model object by name """
         return self._original_names[model_name]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[PydanticModelT]:
         """ List Pydantic models """
-        return iter(self._original_names)
+        return iter(self._original_names.values())
 
     def __contains__(self, model: Union[str, SAModelT]):
         """ Does this namespace contain the specific model?

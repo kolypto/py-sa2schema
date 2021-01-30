@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from packaging import version
 from typing import Any, Dict, Type, Callable, List, Optional, ForwardRef, Set
-from pydantic import BaseModel, ValidationError, VERSION as PYDANTIC_VERSION
+from pydantic import BaseModel, ValidationError
 from pydantic.fields import SHAPE_LIST, ModelField
 from pydantic.utils import GetterDict
-import pydantic as v
+import pydantic as pd
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
@@ -24,8 +25,16 @@ from .models import STI_Employee, STI_Manager, STI_Engineer
 from .lib import sa_set_committed_state
 
 
-# region Test sa_model()
+# Pydantic Version
+PD_VERSION = version.parse(pd.VERSION)
 
+# Pydantic < 1.7.3 report "required-optional" default values as None.
+# Newer versions report it as Ellipsis
+REQOPT_DEFAULT = None if PD_VERSION < version.parse('1.7.3') else ...
+
+
+
+# region Test sa_model()
 
 def test_sa_model_User_columns():
     """ User: COLUMN """
@@ -33,7 +42,7 @@ def test_sa_model_User_columns():
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.COLUMN,
                                     exclude=('int', 'json_attr'))
     assert schema_attrs(pd_User) == {
-       'annotated_int': {'type': int, 'default': None, 'required': True},  # override from annotation!
+       'annotated_int': {'type': int, 'default': REQOPT_DEFAULT, 'required': True},  # override from annotation!
         # note: `type` is always unwrappe by Pydantic. There never is `Optional[]` around it
        'default': {'type': str, 'default': 'value', 'required': False},  # default value is here
        'documented': {'type': str, 'default': None, 'required': False},
@@ -41,7 +50,7 @@ def test_sa_model_User_columns():
        # 'int': {'type': int, 'default': None, 'required': False},  # excluded
        # 'json_attr': {'type': dict, 'default': None, 'required': False},  # excluded
        'optional': {'type': str, 'default': None, 'required': False},
-       'required': {'type': str, 'default': None, 'required': True}
+       'required': {'type': str, 'default': REQOPT_DEFAULT, 'required': True}
     }
 
     # Invalid users
@@ -68,7 +77,7 @@ def test_sa_model_User_properties():
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.PROPERTY_RW)
     assert schema_attrs(pd_User) == {
         'property_without_type': {'type': Any, 'default': None, 'required': False},  # nullable => not required
-        'property_typed': {'type': str, 'default': None, 'required': True},  # a property is required because it does not support nulls
+        'property_typed': {'type': str, 'default': REQOPT_DEFAULT, 'required': True},  # a property is required because it does not support nulls
         'property_documented': {'type': Any, 'default': None, 'required': False},
         'property_nullable': {'type': str, 'default': None, 'required': False},
         'property_writable': {'type': str, 'default': 'default', 'required': False},  # has a default. Not required.
@@ -107,7 +116,7 @@ def test_sa_model_User_hybrid_properties():
     # Test User: @hybrid_property
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.HYBRID_PROPERTY_RW)
     assert schema_attrs(pd_User) == {
-        'hybrid_property_typed': {'type': str, 'default': None, 'required': True},  # a property is required because it does not support nulls
+        'hybrid_property_typed': {'type': str, 'default': REQOPT_DEFAULT, 'required': True},  # a property is required because it does not support nulls
         'hybrid_property_writable': {'type': str, 'default': 'default', 'required': False},  # default value set
     }
 
@@ -201,16 +210,16 @@ def test_experiment_with_forward_references():
 
         # Check
         assert schema_attrs(pd_User) == {
-            'id': {'type': int, 'required': True, 'default': None},
+            'id': {'type': int, 'required': True, 'default': REQOPT_DEFAULT},
             # It's normal that 'type' is without `List`.
             # The type is stored in ModelField.shape, and can also be seen in ModelField.outer_type_
-            'articles': {'type': pd_Article, 'required': True, 'default': None}
+            'articles': {'type': pd_Article, 'required': True, 'default': REQOPT_DEFAULT}
         }
         assert pd_User.__fields__['articles'].shape == SHAPE_LIST
 
         assert schema_attrs(pd_Article) == {
-            'id': {'type': int, 'required': True, 'default': None},
-            'user': {'type': pd_User, 'required': True, 'default': None}
+            'id': {'type': int, 'required': True, 'default': REQOPT_DEFAULT},
+            'user': {'type': pd_User, 'required': True, 'default': REQOPT_DEFAULT}
         }
 
         # Play
@@ -288,7 +297,7 @@ def test_sa_model_User_relationships():
 
     ns.update_forward_refs()  # got to do it
 
-    if PYDANTIC_VERSION == '1.5':
+    if PD_VERSION == version.parse('1.5'):
         # 1.5: defaults with containers have Undefined
         from pydantic.fields import Undefined
         assert schema_attrs(pd_User) == {
@@ -298,7 +307,7 @@ def test_sa_model_User_relationships():
             'articles_dict_attr': {'type': pd_Article, 'required': False, 'default': Undefined},
             'articles_dict_keyfun': {'type': pd_Article, 'required': False, 'default': Undefined}
         }
-    elif PYDANTIC_VERSION == '1.5.1':
+    elif PD_VERSION == version.parse('1.5.1'):
         # 1.5.1: 'default' is set to the container type
         assert schema_attrs(pd_User) == {
             # All references resolved
@@ -307,7 +316,7 @@ def test_sa_model_User_relationships():
             'articles_dict_attr': {'type': pd_Article, 'required': False, 'default': {}},
             'articles_dict_keyfun': {'type': pd_Article, 'required': False, 'default': {}}
         }
-    elif PYDANTIC_VERSION == '1.6':
+    elif PD_VERSION == version.parse('1.6'):
         # 1.6: BUG: nested models aren't resolved
         assert schema_attrs(pd_User) == {
             # All references resolved
@@ -359,20 +368,20 @@ def test_sa_model_User_relationships():
     pd_User = sa2.pydantic.sa_model(User, types=AttributeType.DYNAMIC_LOADER, naming='pd_{model}', module=__name__)
     pd_User.update_forward_refs(**locals())  # manually
 
-    if PYDANTIC_VERSION == '1.5':
+    if PD_VERSION == version.parse('1.5'):
         # 1.5: defaults with containers have Undefined
         from pydantic.fields import Undefined
         assert schema_attrs(pd_User) == {
             # All references resolved
             'articles_q': {'type': pd_Article, 'required': False, 'default': Undefined},
         }
-    elif PYDANTIC_VERSION == '1.5.1':
+    elif PD_VERSION == version.parse('1.5.1'):
         # 1.5.1: 'default' is set to the container type
         assert schema_attrs(pd_User) == {
             # All references resolved
             'articles_q': {'type': pd_Article, 'required': False, 'default': []},
         }
-    elif PYDANTIC_VERSION == '1.6':
+    elif PD_VERSION == version.parse('1.6'):
         # 1.6: BUG: nested models aren't resolved
         assert schema_attrs(pd_User) == {
             'articles_q': {'type': List[ForwardRef('pd_Article')], 'required': False, 'default': None},
@@ -389,7 +398,7 @@ def test_sa_model_User_relationships():
                                     naming='pd_{model}', module=__name__)
     pd_User.update_forward_refs(**locals())  # manually
 
-    if PYDANTIC_VERSION == '1.5':
+    if PD_VERSION == version.parse('1.5'):
         # 1.5: defaults with containers have Undefined
         from pydantic.fields import Undefined
         assert schema_attrs(pd_User) == {
@@ -397,14 +406,14 @@ def test_sa_model_User_relationships():
             'article_titles': {'type': str, 'required': False, 'default': Undefined},
             'article_authors': {'type': pd_User, 'required': False, 'default': Undefined},
         }
-    elif PYDANTIC_VERSION == '1.5.1':
+    elif PD_VERSION == version.parse('1.5.1'):
         # 1.5.1: 'default' is set to the container type
         assert schema_attrs(pd_User) == {
             # All references resolved
             'article_titles': {'type': str, 'required': False, 'default': []},
             'article_authors': {'type': pd_User, 'required': False, 'default': []},
         }
-    elif PYDANTIC_VERSION == '1.6':
+    elif PD_VERSION == version.parse('1.6'):
         # 1.6: BUG: nested models aren't resolved
         assert schema_attrs(pd_User) == {
             # All references resolved
@@ -492,8 +501,8 @@ def test_sa_model_User_composite():
     # Check
     assert schema_attrs(pd_User) == {
         # All references resolved
-        'point': {'type': Point, 'required': True, 'default': None},
-        'synonym': {'type': Point, 'required': True, 'default': None},
+        'point': {'type': Point, 'required': True, 'default': REQOPT_DEFAULT},
+        'synonym': {'type': Point, 'required': True, 'default': REQOPT_DEFAULT},
     }
 
 
@@ -532,7 +541,7 @@ def test_sa_model_User_make_optional():
         **everything_is_nullable,
         # Primary key: required, not nullable
         # This is because ALL_BUT_PRIMARY_KEY is used
-        'annotated_int': {'allow_none': False, 'default': None, 'required': True},
+        'annotated_int': {'allow_none': False, 'default': REQOPT_DEFAULT, 'required': True},
     }
 
 
@@ -543,7 +552,7 @@ def test_sa_model_detects_models():
     class Model(Base):
         __tablename__ = 'm'
         id = sa.Column(sa.Integer, primary_key=True)
-        other: v.EmailStr = sa.Column(sa.String)
+        other: pd.EmailStr = sa.Column(sa.String)
 
     # Now, if sa_model() cannot tell mapped entities from unmapped,
     # it would take `EmailStr` and try to make an EmailStrHey ...
@@ -1258,7 +1267,7 @@ def test_derive_model():
     r, o, ro = SecretAnimal.__fields__.values()
     assert r.required == True
     assert o.required == False
-    if PYDANTIC_VERSION != '1.5':  # TODO: FIXME: fails with pydantic 1.5
+    if PD_VERSION != version.parse('1.5'):  # TODO: FIXME: fails with pydantic 1.5
         assert ro.required == True
 
 

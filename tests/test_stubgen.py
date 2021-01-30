@@ -20,6 +20,7 @@ def test_stubgen_sqlalchemy():
     assert py == '''
 from __future__ import annotations
 import builtins, datetime, tests.test_stubgen, typing
+NoneType = type(None)
 
 class User:
     """ User model """
