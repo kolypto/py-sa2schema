@@ -130,24 +130,24 @@ def test_example_with_columns(sqlite_session: Session):
 
 def test_example_with_columns(sqlite_session: Session):
     class schemas:  # namespace
-        from sa2schema.to.pydantic import sa_models, AttributeType
+        from sa2schema.to.pydantic import Models, AttributeType
 
         # A _pydantic_names for related models
         # They have to be put "in a box" so that they can find each other
-        models_in_db = sa_models(__name__,
-                                 # Naming convention for our models: "...InDb"
-                                 # This is required to resolve forward references in Python annotations
-                                 naming='{model}InDb',
-                                 # `types` specifies which attributes do you want to include.
-                                 # We include relationships explicitly, becase by default, they're excluded.
-                                 types=AttributeType.COLUMN | AttributeType.RELATIONSHIP
-                                 )
+        models_in_db = Models(__name__,
+                              # Naming convention for our models: "...InDb"
+                              # This is required to resolve forward references in Python annotations
+                              naming='{model}InDb',
+                              # `types` specifies which attributes do you want to include.
+                              # We include relationships explicitly, becase by default, they're excluded.
+                              types=AttributeType.COLUMN | AttributeType.RELATIONSHIP
+                              )
 
         # Put our models into the namespace
         # Every SqlAlchemy model gets converted into a Pydantic model.
         # They link to one another through a common namespace
-        UserInDb = models_in_db.add(models.User)
-        ArticleInDb = models_in_db.add(models.Article)
+        UserInDb = models_in_db.sa_model(models.User)
+        ArticleInDb = models_in_db.sa_model(models.Article)
 
         # Unfortunately, this is required to resolve forward references
         models_in_db.update_forward_refs()
@@ -207,20 +207,20 @@ def test_example_with_columns(sqlite_session: Session):
 
 def test_avoiding_too_many_sql_queries(sqlite_session: Session):
     class schemas:
-        from sa2schema.to.pydantic import sa_models, AttributeType, SALoadedModel
+        from sa2schema.to.pydantic import Models, AttributeType, SALoadedModel
 
-        partial = sa_models(__name__,
-                            naming='{model}Partial',
-                            # Include columns and relationships
-                            types=AttributeType.COLUMN | AttributeType.RELATIONSHIP,
-                            # Create a "partial model": make every field Optional[]
-                            make_optional=True,
-                            # Use another base class that will only get loaded attributes
-                            Base=SALoadedModel
-                            )
+        partial = Models(__name__,
+                         naming='{model}Partial',
+                         # Include columns and relationships
+                         types=AttributeType.COLUMN | AttributeType.RELATIONSHIP,
+                         # Create a "partial model": make every field Optional[]
+                         make_optional=True,
+                         # Use another base class that will only get loaded attributes
+                         Base=SALoadedModel
+                         )
 
-        partial.add(models.User)
-        partial.add(models.Article)
+        partial.sa_model(models.User)
+        partial.sa_model(models.Article)
         partial.update_forward_refs()
 
     # Prepare

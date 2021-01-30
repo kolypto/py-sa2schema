@@ -1,13 +1,9 @@
-""" sa_models() implementation that can work with many models that relate to one another
-
-With sa_model() you can create singular models. However, if they have relationships, you'll need
-to 1) hava all of them declared in the same module,
-and 2) have a common naming scheme.
-Then, when late binding is done, models find one another through the module's namespace.
-"""
+""" Models: container for models that can relate to one another """
 
 from functools import partial
-from typing import Type, Optional, Mapping, Union, Iterable
+from typing import Type, Optional, Mapping, Union
+
+from pydantic import BaseModel
 
 from sa2schema import AttributeType
 from .annotations import PydanticModelT, SAModelT, ModelNameMakerT, FilterT
@@ -15,21 +11,23 @@ from .base_model import SAModel
 from .sa_model import sa_model
 
 
-class sa_models:
-    """ A helper for models that can reference one another through relationships.
+class Models:
+    """ A container for models that can relate to one another.
 
-    Basically, it is a preset for sa_model() that makes sure that models will be able to find one another
-    because they share a common python module and a naming scheme.
+    For instance, a group of DB models, a group of input models, a group of output models.
+    You can use it as a real namespace and access the models stored within.
 
-    Internally, it also works as a namespace which you can introspect.
+    A Models() namespace is nothing mode than a partial(sa_model) that feeds the same `module` and `naming`.
+    This way, every model will have a common model naming pattern and be able to find one another.
+    It also collects them all into a dict() that will be used as a lookup table for update_forward_refs().
 
     Example:
         # schemas.py
         from sa2schema import sa2
         from app.db import models  # SqlAlchemy models of your app
-        ns = sa2.pydantic.sa_models(__name__, '{model}', types=AttributeType.RELATIONSHIP)
-        User = ns.add(models.User)
-        Article = ns.add(models.Article)
+        ns = sa2.pydantic.Models(__name__, '{model}', types=AttributeType.RELATIONSHIP)
+        User = ns.sa_model(models.User)
+        Article = ns.sa_model(models.Article)
         ns.update_forward_refs()  # got to do it
     """
 
@@ -71,16 +69,16 @@ class sa_models:
         self._types = types
 
         # remember these models
-        self._original_names: Mapping[str, PydanticModelT] = {}
-        self._pydantic_names: Mapping[str, PydanticModelT] = {}
+        self._original_names: Mapping[str, BaseModel] = {}
+        self._pydantic_names: Mapping[str, BaseModel] = {}
 
-    def add(self,
-            Model: Type[SAModelT],
-            Parent: Optional[PydanticModelT] = None,
-            *,
-            types: AttributeType = AttributeType.NONE,
-            exclude: FilterT = (),
-            ) -> PydanticModelT:
+    def sa_model(self,
+                 Model: Type[SAModelT],
+                 Parent: Optional[PydanticModelT] = None,
+                 *,
+                 types: AttributeType = AttributeType.NONE,
+                 exclude: FilterT = (),
+                 ) -> Type[BaseModel]:
         """ Add a model to the _pydantic_names
 
         Args:
@@ -104,13 +102,13 @@ class sa_models:
         for model in self._pydantic_names.values():
             model.update_forward_refs(**self._pydantic_names)
 
-    def __getattr__(self, model_name: str) -> PydanticModelT:
+    def __getattr__(self, model_name: str) -> BaseModel:
         """ Get a Pydantic model object by name """
         return self._original_names[model_name]
 
-    def __iter__(self) -> Iterable[PydanticModelT]:
+    def __iter__(self):
         """ List Pydantic models """
-        return iter(self._original_names.values())
+        return iter(self._original_names)
 
     def __contains__(self, model: Union[str, SAModelT]):
         """ Does this namespace contain the specific model?

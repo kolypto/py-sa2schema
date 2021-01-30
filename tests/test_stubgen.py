@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 
 from sa2schema import AttributeType
-from sa2schema.to.pydantic import sa_models
+from sa2schema.to.pydantic import Models
 from sa2schema.to.pydantic.stubgen import stubs_for_pydantic
 from sa2schema.stubgen import stubs_for_sa_models
 
@@ -39,9 +39,9 @@ class Article:
 @pytest.mark.skipif(PYTHON_LT_39, reason='ast.unparse() only available since Python 3.9')
 def test_stubgen_pydantic():
     # Prepare models
-    models = sa_models(__name__, types=AttributeType.ALL, naming='{model}Model')
-    models.add(User)
-    models.add(Article)
+    models = Models(__name__, types=AttributeType.ALL, naming='{model}Model')
+    models.sa_model(User)
+    models.sa_model(Article)
 
     # Convert
     py = ast.unparse(stubs_for_pydantic(models))
