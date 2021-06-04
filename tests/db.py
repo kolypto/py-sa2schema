@@ -1,8 +1,11 @@
 from typing import Tuple
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, __version__
 from sqlalchemy.engine import Engine
-from sqlalchemy.ext.declarative import DeclarativeMeta
+if __version__ < '1.4.0':
+    from sqlalchemy.ext.declarative.api import DeclarativeMeta
+else:
+    from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.orm import sessionmaker
 
 

@@ -8,7 +8,10 @@ from pydantic.fields import SHAPE_LIST, ModelField
 from pydantic.utils import GetterDict
 import pydantic as pd
 import sqlalchemy as sa
-from sqlalchemy.ext.declarative import declarative_base
+if sa.__version__ < '1.4.0':
+    from sqlalchemy.ext.declarative import declarative_base
+else:
+    from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
 from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.base import instance_state
@@ -434,7 +437,10 @@ def test_sa_model_user_relationships_in_annotations():
 
     # Declare some models
     import sqlalchemy as sa
-    from sqlalchemy.ext.declarative import declarative_base
+    if sa.__version__ < '1.4.0':
+        from sqlalchemy.ext.declarative import declarative_base
+    else:
+        from sqlalchemy.orm import declarative_base
 
     Base = declarative_base()
 

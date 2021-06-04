@@ -21,8 +21,11 @@ for a Pydantic model:
 
 ```python
 # models.py
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, __version__
+if __version__ < '1.4.0':
+    from sqlalchemy.ext.declarative import declarative_base
+else:
+    from sqlalchemy.orm import declarative_base
 import pydantic as v
 
 # SqlAlchemy models

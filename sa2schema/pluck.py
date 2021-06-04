@@ -18,8 +18,11 @@ import warnings
 import enum
 from functools import lru_cache
 from typing import Mapping, Union, Any, Callable, FrozenSet
-
-from sqlalchemy.ext.declarative.api import DeclarativeMeta
+from sqlalchemy import __version__
+if __version__ < '1.4.0':
+    from sqlalchemy.ext.declarative.api import DeclarativeMeta
+else:
+    from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.orm import Mapper
 from sqlalchemy.orm.base import instance_dict, class_mapper
 

@@ -3,8 +3,11 @@
 # models.py
 import pytest
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, ForeignKey, __version__
+if __version__ < '1.4.0':
+    from sqlalchemy.ext.declarative import declarative_base
+else:
+    from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship, Session
 import pydantic as v
 
