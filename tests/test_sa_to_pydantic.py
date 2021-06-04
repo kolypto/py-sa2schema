@@ -31,9 +31,9 @@ from .lib import sa_set_committed_state
 # Pydantic Version
 PD_VERSION = version.parse(pd.VERSION)
 
-# Pydantic < 1.7.3 report "required-optional" default values as None.
-# Newer versions report it as Ellipsis
-REQOPT_DEFAULT = None if PD_VERSION < version.parse('1.7.3') else ...
+# Pydantic < 1.7.3 and >= 1.8.2 report "required-optional" default values as None.
+# Other versions report it as Ellipsis.
+REQOPT_DEFAULT = None if PD_VERSION < version.parse('1.7.3') or PD_VERSION >= version.parse('1.8.2') else ...
 
 
 
