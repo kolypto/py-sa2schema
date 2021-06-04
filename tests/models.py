@@ -3,9 +3,12 @@ from enum import Enum
 from typing import Optional
 
 import sqlalchemy as sa
+if sa.__version__ < '1.4.0':
+    from sqlalchemy.ext.declarative import declarative_base
+else:
+    from sqlalchemy.orm import declarative_base
 from sqlalchemy import select
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm.collections import attribute_mapped_collection, mapped_collection

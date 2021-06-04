@@ -8,7 +8,10 @@ from pydantic.fields import SHAPE_LIST, ModelField
 from pydantic.utils import GetterDict
 import pydantic as pd
 import sqlalchemy as sa
-from sqlalchemy.ext.declarative import declarative_base
+if sa.__version__ < '1.4.0':
+    from sqlalchemy.ext.declarative import declarative_base
+else:
+    from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import exc as sa_exc, Session, load_only, joinedload
 from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.base import instance_state
@@ -28,9 +31,9 @@ from .lib import sa_set_committed_state
 # Pydantic Version
 PD_VERSION = version.parse(pd.VERSION)
 
-# Pydantic < 1.7.3 report "required-optional" default values as None.
-# Newer versions report it as Ellipsis
-REQOPT_DEFAULT = None if PD_VERSION < version.parse('1.7.3') else ...
+# Pydantic < 1.7.3 and >= 1.8.2 report "required-optional" default values as None.
+# Other versions report it as Ellipsis.
+REQOPT_DEFAULT = None if PD_VERSION < version.parse('1.7.3') or PD_VERSION >= version.parse('1.8.2') else ...
 
 
 
@@ -434,7 +437,10 @@ def test_sa_model_user_relationships_in_annotations():
 
     # Declare some models
     import sqlalchemy as sa
-    from sqlalchemy.ext.declarative import declarative_base
+    if sa.__version__ < '1.4.0':
+        from sqlalchemy.ext.declarative import declarative_base
+    else:
+        from sqlalchemy.orm import declarative_base
 
     Base = declarative_base()
 

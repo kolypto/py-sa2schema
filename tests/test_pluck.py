@@ -1,6 +1,9 @@
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.ext.declarative import declarative_base
+if sa.__version__ < '1.4.0':
+    from sqlalchemy.ext.declarative import declarative_base
+else:
+    from sqlalchemy.orm import declarative_base
 
 import sa2schema as sa2
 from .lib import sa_set_committed_state
