@@ -1,6 +1,8 @@
 [![Tests](https://github.com/kolypto/py-sa2schema/workflows/Tests/badge.svg)](/kolypto/py-sa2schema/actions)
 [![Pythons](https://img.shields.io/badge/python-3.7%E2%80%933.9-blue.svg)](noxfile.py)
 
+NOTE: this project is EXPERIMENTAL! The author doesn't know yet whether it will be supported :) 
+
 Sqlalchemy model to Pydantic model converter
 ============================================
 
