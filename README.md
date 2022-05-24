@@ -4,7 +4,7 @@
 🔴🔴🔴 Project Discontinued 🔴🔴🔴
 ===================================
 
-NOTE: this project was EXPERIMENTAL and is not DISCONTINUED.
+NOTE: this project was EXPERIMENTAL and is DISCONTINUED.
 
 
 Sqlalchemy model to Pydantic model converter
